@@ -9,6 +9,8 @@ import { Plus, Trash2, Printer, Save } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { InvoiceItemDialog } from "@/components/InvoiceItemDialog";
+import { InvoiceReceipt } from "@/components/InvoiceReceipt";
 
 interface InvoiceItem {
   productId: number | null;
@@ -25,6 +27,7 @@ export default function B2BInvoice() {
   const [customerGst, setCustomerGst] = useState("");
   const [paymentMode, setPaymentMode] = useState<"Cash" | "Online">("Online");
   const [items, setItems] = useState<InvoiceItem[]>([]);
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const { data: invoiceNumberData } = useQuery<{ invoiceNumber: string }>({
     queryKey: ["/api/invoices/next-number?type=B2B"],
@@ -36,28 +39,25 @@ export default function B2BInvoice() {
 
   const invoiceNumber = invoiceNumberData?.invoiceNumber || "";
 
-  const addItem = () => {
-    setItems([...items, { productId: null, itemName: "", rate: "", quantity: 1, gstPercentage: "18" }]);
+  const handleAddItem = (item: {
+    productName: string;
+    quantity: number;
+    rate: string;
+    gstPercentage: string;
+  }) => {
+    const product = products.find((p) => p.name === item.productName);
+    const newItem: InvoiceItem = {
+      productId: product?.id || null,
+      itemName: item.productName,
+      rate: item.rate,
+      quantity: item.quantity,
+      gstPercentage: item.gstPercentage,
+    };
+    setItems((prev) => [newItem, ...prev]);
   };
 
   const removeItem = (index: number) => {
     setItems(items.filter((_, i) => i !== index));
-  };
-
-  const updateItem = (index: number, field: string, value: any) => {
-    const newItems = [...items];
-    newItems[index] = { ...newItems[index], [field]: value };
-
-    if (field === "productId" && value) {
-      const product = products.find((p) => p.id === parseInt(value));
-      if (product) {
-        newItems[index].itemName = product.name;
-        newItems[index].rate = product.rate;
-        newItems[index].gstPercentage = product.gstPercentage;
-      }
-    }
-
-    setItems(newItems);
   };
 
   const calculateTotals = () => {
@@ -138,12 +138,27 @@ export default function B2BInvoice() {
     });
   };
 
+  const handlePrint = () => {
+    window.print();
+  };
+
   return (
-    <div className="p-8 max-w-7xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-semibold mb-2">B2B Invoice Generation</h1>
-        <p className="text-muted-foreground">Create business-to-business invoices with GST details</p>
-      </div>
+    <>
+      <style>
+        {`
+          @media print {
+            .no-print {
+              display: none !important;
+            }
+          }
+        `}
+      </style>
+      
+      <div className="p-8 max-w-7xl mx-auto no-print">
+        <div className="mb-8">
+          <h1 className="text-3xl font-semibold mb-2">B2B Invoice Generation</h1>
+          <p className="text-muted-foreground">Create business-to-business invoices with GST details</p>
+        </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
@@ -218,7 +233,7 @@ export default function B2BInvoice() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <Label className="text-sm font-medium">Items</Label>
-                  <Button type="button" size="sm" onClick={addItem} data-testid="button-add-b2b-item">
+                  <Button type="button" size="sm" onClick={() => setDialogOpen(true)} data-testid="button-add-b2b-item">
                     <Plus className="h-4 w-4 mr-2" />
                     Add Item
                   </Button>
@@ -226,64 +241,30 @@ export default function B2BInvoice() {
 
                 {items.map((item, index) => (
                   <Card key={index} className="p-4">
-                    <div className="grid md:grid-cols-12 gap-4">
-                      <div className="md:col-span-4">
-                        <Label className="text-sm font-medium">Product</Label>
-                        <Select
-                          value={item.productId?.toString() || ""}
-                          onValueChange={(value) => updateItem(index, "productId", value)}
-                        >
-                          <SelectTrigger className="h-12">
-                            <SelectValue placeholder="Select product" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {products.map((product) => (
-                              <SelectItem key={product.id} value={product.id.toString()}>
-                                {product.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex-1 grid grid-cols-3 gap-4">
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">Product</p>
+                          <p className="font-medium">{item.itemName}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">Quantity</p>
+                          <p className="font-medium">{item.quantity}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground mb-1">Amount</p>
+                          <p className="font-medium">₹{(parseFloat(item.rate) * item.quantity).toFixed(2)}</p>
+                        </div>
                       </div>
-                      <div className="md:col-span-3">
-                        <Label className="text-sm font-medium">Rate (₹)</Label>
-                        <Input
-                          type="number"
-                          value={item.rate}
-                          onChange={(e) => updateItem(index, "rate", e.target.value)}
-                          placeholder="0.00"
-                          className="h-12"
-                        />
-                      </div>
-                      <div className="md:col-span-2">
-                        <Label className="text-sm font-medium">Qty</Label>
-                        <Input
-                          type="number"
-                          value={item.quantity}
-                          onChange={(e) => updateItem(index, "quantity", parseInt(e.target.value) || 1)}
-                          min="1"
-                          className="h-12"
-                        />
-                      </div>
-                      <div className="md:col-span-2">
-                        <Label className="text-sm font-medium">GST%</Label>
-                        <Input
-                          type="number"
-                          value={item.gstPercentage}
-                          onChange={(e) => updateItem(index, "gstPercentage", e.target.value)}
-                          className="h-12"
-                        />
-                      </div>
-                      <div className="md:col-span-1 flex items-end">
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="icon"
-                          onClick={() => removeItem(index)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="icon"
+                        onClick={() => removeItem(index)}
+                        data-testid={`button-remove-item-${index}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </Card>
                 ))}
@@ -333,7 +314,7 @@ export default function B2BInvoice() {
                   <Save className="h-4 w-4 mr-2" />
                   {saveMutation.isPending ? "Saving..." : "Save Bill"}
                 </Button>
-                <Button variant="outline" className="w-full h-12">
+                <Button variant="outline" className="w-full h-12" onClick={handlePrint} data-testid="button-print-b2b-invoice">
                   <Printer className="h-4 w-4 mr-2" />
                   Print Bill
                 </Button>
@@ -342,6 +323,23 @@ export default function B2BInvoice() {
           </Card>
         </div>
       </div>
-    </div>
+
+        <InvoiceItemDialog
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          products={products}
+          onAddItem={handleAddItem}
+        />
+      </div>
+
+      <InvoiceReceipt
+        invoiceNumber={invoiceNumber}
+        customerName={customerName}
+        customerPhone={customerPhone}
+        items={items}
+        subtotal={subtotal}
+        grandTotal={grandTotal}
+      />
+    </>
   );
 }

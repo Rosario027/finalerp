@@ -197,18 +197,17 @@ export default function InventoryManagement() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="gst">GST % <span className="text-destructive">*</span></Label>
-                  <Select
+                  <Input
+                    id="gst"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
                     value={formData.gstPercentage}
-                    onValueChange={(value) => setFormData({ ...formData, gstPercentage: value })}
-                  >
-                    <SelectTrigger data-testid="select-gst">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="5">5%</SelectItem>
-                      <SelectItem value="18">18%</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    onChange={(e) => setFormData({ ...formData, gstPercentage: e.target.value })}
+                    placeholder="Enter GST %"
+                    data-testid="input-gst-percentage"
+                  />
                 </div>
               </div>
               <Button className="w-full" onClick={handleAdd} data-testid="button-submit-product">
@@ -324,18 +323,16 @@ export default function InventoryManagement() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="edit-gst">GST % <span className="text-destructive">*</span></Label>
-                <Select
+                <Input
+                  id="edit-gst"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="100"
                   value={formData.gstPercentage}
-                  onValueChange={(value) => setFormData({ ...formData, gstPercentage: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="5">5%</SelectItem>
-                    <SelectItem value="18">18%</SelectItem>
-                  </SelectContent>
-                </Select>
+                  onChange={(e) => setFormData({ ...formData, gstPercentage: e.target.value })}
+                  placeholder="Enter GST %"
+                />
               </div>
             </div>
             <Button className="w-full" onClick={handleEdit}>

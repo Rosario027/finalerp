@@ -113,6 +113,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await storage.deleteProduct(id);
       res.status(204).send();
     } catch (error) {
+      if (error instanceof Error && error.message === "Cannot delete product that has been used in invoices") {
+        return res.status(400).json({ message: error.message });
+      }
       res.status(500).json({ message: "Server error" });
     }
   });
@@ -134,10 +137,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/invoices", authMiddleware, async (req, res) => {
     try {
-      const { startDate, endDate } = req.query;
+      const { startDate, endDate, includeDeleted } = req.query;
       const invoices = await storage.getInvoices({
         startDate: startDate as string,
         endDate: endDate as string,
+        includeDeleted: includeDeleted === "true",
       });
       res.json(invoices);
     } catch (error) {
@@ -293,6 +297,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         res.json(invoice);
       }
+    } catch (error) {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  app.delete("/api/invoices/:id", authMiddleware, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const invoice = await storage.softDeleteInvoice(id);
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      res.status(204).send();
     } catch (error) {
       res.status(500).json({ message: "Server error" });
     }

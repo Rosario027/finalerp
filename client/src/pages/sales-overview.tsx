@@ -6,10 +6,11 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Edit, Search, Printer } from "lucide-react";
+import { Edit, Search, Printer, Trash2 } from "lucide-react";
 import { format } from "date-fns";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
 interface Invoice {
   id: number;
@@ -18,6 +19,7 @@ interface Invoice {
   paymentMode: string;
   grandTotal: string;
   isEdited: boolean;
+  deletedAt: string | null;
   createdAt: string;
 }
 
@@ -28,22 +30,69 @@ export default function SalesOverview() {
   const [endDate, setEndDate] = useState("");
   const [searchParams, setSearchParams] = useState<{ startDate: string; endDate: string } | null>(null);
 
-  const buildQueryKey = () => {
-    if (!searchParams) return "/api/invoices";
+  const getQueryKey = () => {
+    const filters: { startDate?: string; endDate?: string; includeDeleted: boolean } = {
+      includeDeleted: true
+    };
     
-    const params = new URLSearchParams();
-    if (searchParams.startDate) {
-      params.append("startDate", searchParams.startDate);
+    if (searchParams) {
+      filters.startDate = searchParams.startDate;
+      filters.endDate = searchParams.endDate;
     }
-    if (searchParams.endDate) {
-      params.append("endDate", searchParams.endDate);
-    }
-    return `/api/invoices?${params.toString()}`;
+    
+    return ["/api/invoices", filters];
   };
 
   const { data: invoices = [], isLoading: loading } = useQuery<Invoice[]>({
-    queryKey: [buildQueryKey()],
-    enabled: searchParams !== null,
+    queryKey: getQueryKey(),
+    queryFn: async ({ queryKey }) => {
+      const [baseUrl, filters] = queryKey as [string, { startDate?: string; endDate?: string; includeDeleted: boolean }];
+      const params = new URLSearchParams();
+      
+      if (filters.startDate) {
+        params.append("startDate", filters.startDate);
+      }
+      if (filters.endDate) {
+        params.append("endDate", filters.endDate);
+      }
+      if (filters.includeDeleted) {
+        params.append("includeDeleted", "true");
+      }
+      
+      const url = params.toString() ? `${baseUrl}?${params.toString()}` : baseUrl;
+      const response = await fetch(url, {
+        credentials: "include",
+        headers: {
+          "Authorization": `Bearer ${localStorage.getItem("auth_token") || ""}`,
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch invoices: ${response.statusText}`);
+      }
+      
+      return response.json();
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (invoiceId: number) => {
+      return apiRequest("DELETE", `/api/invoices/${invoiceId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      toast({
+        title: "Invoice Deleted",
+        description: "The invoice has been marked as deleted.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete invoice.",
+        variant: "destructive",
+      });
+    },
   });
 
   const handleSearch = () => {
@@ -54,12 +103,20 @@ export default function SalesOverview() {
     });
   };
 
-  const totalSales = invoices.reduce((sum, inv) => sum + parseFloat(inv.grandTotal), 0);
+  const handleDelete = (invoiceId: number) => {
+    if (window.confirm("Are you sure you want to delete this invoice?")) {
+      deleteMutation.mutate(invoiceId);
+    }
+  };
+
+  const totalSales = invoices
+    .filter((inv) => !inv.deletedAt)
+    .reduce((sum, inv) => sum + parseFloat(inv.grandTotal), 0);
   const cashSales = invoices
-    .filter((inv) => inv.paymentMode === "Cash")
+    .filter((inv) => !inv.deletedAt && inv.paymentMode === "Cash")
     .reduce((sum, inv) => sum + parseFloat(inv.grandTotal), 0);
   const onlineSales = invoices
-    .filter((inv) => inv.paymentMode === "Online")
+    .filter((inv) => !inv.deletedAt && inv.paymentMode === "Online")
     .reduce((sum, inv) => sum + parseFloat(inv.grandTotal), 0);
 
   return (
@@ -128,7 +185,11 @@ export default function SalesOverview() {
                 </TableHeader>
                 <TableBody>
                   {invoices.map((invoice) => (
-                    <TableRow key={invoice.id} className="hover-elevate" data-testid={`row-invoice-${invoice.id}`}>
+                    <TableRow 
+                      key={invoice.id} 
+                      className={`hover-elevate ${invoice.deletedAt ? "opacity-50" : ""}`}
+                      data-testid={`row-invoice-${invoice.id}`}
+                    >
                       <TableCell className="font-medium">{invoice.invoiceNumber}</TableCell>
                       <TableCell>{format(new Date(invoice.createdAt), "dd MMM yyyy")}</TableCell>
                       <TableCell>{invoice.customerName}</TableCell>
@@ -139,9 +200,14 @@ export default function SalesOverview() {
                       </TableCell>
                       <TableCell className="text-right font-semibold">₹{parseFloat(invoice.grandTotal).toFixed(2)}</TableCell>
                       <TableCell className="text-center">
-                        {invoice.isEdited && (
-                          <Badge variant="outline" className="text-xs">Edited</Badge>
-                        )}
+                        <div className="flex flex-col gap-1 items-center">
+                          {invoice.deletedAt && (
+                            <Badge variant="destructive" className="text-xs">Deleted</Badge>
+                          )}
+                          {invoice.isEdited && (
+                            <Badge variant="outline" className="text-xs">Edited</Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
@@ -158,8 +224,18 @@ export default function SalesOverview() {
                             size="icon" 
                             onClick={() => setLocation(`/create-invoice?edit=${invoice.id}`)}
                             data-testid={`button-edit-${invoice.id}`}
+                            disabled={!!invoice.deletedAt}
                           >
                             <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => handleDelete(invoice.id)}
+                            disabled={!!invoice.deletedAt || deleteMutation.isPending}
+                            data-testid={`button-delete-${invoice.id}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </TableCell>

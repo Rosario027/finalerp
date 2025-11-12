@@ -17,7 +17,7 @@ import {
   type InvoiceWithItems,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, gte, lte, sql, desc } from "drizzle-orm";
+import { eq, and, gte, lte, sql, desc, isNull } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -33,10 +33,11 @@ export interface IStorage {
   deleteProduct(id: number): Promise<boolean>;
   
   // Invoices
-  getInvoices(filters?: { startDate?: string; endDate?: string }): Promise<Invoice[]>;
+  getInvoices(filters?: { startDate?: string; endDate?: string; includeDeleted?: boolean }): Promise<Invoice[]>;
   getInvoiceWithItems(id: number): Promise<InvoiceWithItems | undefined>;
   createInvoice(invoice: InsertInvoice, items: InsertInvoiceItem[]): Promise<Invoice>;
   updateInvoice(id: number, invoice: Partial<InsertInvoice>, items?: InsertInvoiceItem[]): Promise<Invoice | undefined>;
+  softDeleteInvoice(id: number): Promise<Invoice | undefined>;
   getNextInvoiceNumber(type: "B2C" | "B2B"): Promise<string>;
   
   // Expenses
@@ -99,16 +100,24 @@ export class DatabaseStorage implements IStorage {
     try {
       await db.delete(products).where(eq(products.id, id));
       return true;
-    } catch (error) {
-      console.error("Error deleting product:", error);
-      throw new Error("Cannot delete product that is referenced in invoices");
+    } catch (error: any) {
+      if (error.code === '23503' || error.message?.includes('foreign key constraint')) {
+        throw new Error("Cannot delete product that has been used in invoices");
+      }
+      throw error;
     }
   }
 
-  async getInvoices(filters?: { startDate?: string; endDate?: string }): Promise<Invoice[]> {
+  async getInvoices(filters?: { startDate?: string; endDate?: string; includeDeleted?: boolean }): Promise<Invoice[]> {
     let query = db.select().from(invoices);
 
     const conditions = [];
+    
+    // Exclude deleted invoices by default
+    if (!filters?.includeDeleted) {
+      conditions.push(isNull(invoices.deletedAt));
+    }
+    
     if (filters?.startDate) {
       conditions.push(gte(invoices.createdAt, new Date(filters.startDate)));
     }
@@ -167,6 +176,15 @@ export class DatabaseStorage implements IStorage {
     }
 
     return updated;
+  }
+
+  async softDeleteInvoice(id: number): Promise<Invoice | undefined> {
+    const [updated] = await db
+      .update(invoices)
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
+      .where(eq(invoices.id, id))
+      .returning();
+    return updated || undefined;
   }
 
   async getNextInvoiceNumber(type: "B2C" | "B2B"): Promise<string> {

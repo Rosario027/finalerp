@@ -161,57 +161,42 @@ export default function B2BInvoice() {
     if (items.length > 0) {
       const recalculatedItems = items.map(item => {
         const quantity = item.quantity;
-        const totalGstPercentage = item.cgstPercentage + item.sgstPercentage;
+        // Use existing taxableValue as canonical (exclusive base)
+        const canonicalTaxableValue = item.taxableValue;
+        const cgstPercentage = item.cgstPercentage;
+        const sgstPercentage = item.sgstPercentage;
+        const totalGstPercentage = cgstPercentage + sgstPercentage;
         
-        // Use stored taxableValue as the canonical source of truth
-        const taxableValue = item.taxableValue;
+        // Calculate GST amounts from canonical taxableValue
+        const cgstAmount = (canonicalTaxableValue * cgstPercentage) / 100;
+        const sgstAmount = (canonicalTaxableValue * sgstPercentage) / 100;
+        const total = canonicalTaxableValue + cgstAmount + sgstAmount;
         
-        let rate: string;
-        let cgstAmount: number;
-        let sgstAmount: number;
-        let total: number;
-        
+        // Display rate depends on payment mode
+        let displayRate: string;
         if (paymentMode === "Cash") {
-          // Calculate GST amounts from taxable value
-          cgstAmount = (taxableValue * (totalGstPercentage / 2)) / 100;
-          sgstAmount = (taxableValue * (totalGstPercentage / 2)) / 100;
-          total = taxableValue + cgstAmount + sgstAmount;
-          // Rate in Cash mode is the inclusive price per unit
-          rate = (total / quantity).toFixed(2);
+          // Cash mode: rate is inclusive (total per unit)
+          displayRate = (total / quantity).toFixed(2);
         } else {
-          // Online mode: rate is exclusive price per unit
-          cgstAmount = (taxableValue * (totalGstPercentage / 2)) / 100;
-          sgstAmount = (taxableValue * (totalGstPercentage / 2)) / 100;
-          total = taxableValue + cgstAmount + sgstAmount;
-          rate = (taxableValue / quantity).toFixed(2);
+          // Online mode: rate is exclusive (taxable per unit)
+          displayRate = (canonicalTaxableValue / quantity).toFixed(2);
         }
         
         return {
           ...item,
-          rate,
+          rate: displayRate,
+          taxableValue: canonicalTaxableValue,
+          cgstPercentage,
+          cgstAmount,
+          sgstPercentage,
+          sgstAmount,
           gstPercentage: totalGstPercentage,
           gstAmount: cgstAmount + sgstAmount,
-          taxableValue,
-          cgstAmount,
-          sgstAmount,
           total,
         };
       });
       
-      // Only update if values actually changed to prevent unnecessary re-renders
-      const hasChanges = recalculatedItems.some((newItem, index) => {
-        const oldItem = items[index];
-        return (
-          newItem.rate !== oldItem.rate ||
-          Math.abs(newItem.cgstAmount - oldItem.cgstAmount) > 0.001 ||
-          Math.abs(newItem.sgstAmount - oldItem.sgstAmount) > 0.001 ||
-          Math.abs(newItem.total - oldItem.total) > 0.001
-        );
-      });
-      
-      if (hasChanges) {
-        setItems(recalculatedItems);
-      }
+      setItems(recalculatedItems);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [paymentMode]);

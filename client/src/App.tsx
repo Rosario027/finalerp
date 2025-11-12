@@ -72,34 +72,36 @@ function renderMainApp(user: any) {
             <ThemeToggle />
           </header>
           <main className="flex-1 overflow-auto">
-            <Route path="/create-invoice">
-              {() => <ProtectedRoute component={CreateInvoice} />}
-            </Route>
-            <Route path="/sales-overview">
-              {() => <ProtectedRoute component={SalesOverview} />}
-            </Route>
-            <Route path="/admin/dashboard">
-              {() => <ProtectedRoute component={AdminDashboard} adminOnly />}
-            </Route>
-            <Route path="/admin/inventory">
-              {() => <ProtectedRoute component={InventoryManagement} adminOnly />}
-            </Route>
-            <Route path="/admin/b2b-invoice">
-              {() => <ProtectedRoute component={B2BInvoice} adminOnly />}
-            </Route>
-            <Route path="/admin/reports">
-              {() => <ProtectedRoute component={Reports} adminOnly />}
-            </Route>
-            <Route path="/admin/expenses">
-              {() => <ProtectedRoute component={Expenses} adminOnly />}
-            </Route>
-            <Route path="/admin/stock-report">
-              {() => <ProtectedRoute component={StockReport} adminOnly />}
-            </Route>
-            <Route path="/">
-              {() => user.role === "admin" ? <Redirect to="/admin/dashboard" /> : <Redirect to="/create-invoice" />}
-            </Route>
-            <Route component={NotFound} />
+            <Switch>
+              <Route path="/create-invoice">
+                {() => <ProtectedRoute component={CreateInvoice} />}
+              </Route>
+              <Route path="/sales-overview">
+                {() => <ProtectedRoute component={SalesOverview} />}
+              </Route>
+              <Route path="/admin/dashboard">
+                {() => <ProtectedRoute component={AdminDashboard} adminOnly />}
+              </Route>
+              <Route path="/admin/inventory">
+                {() => <ProtectedRoute component={InventoryManagement} adminOnly />}
+              </Route>
+              <Route path="/admin/b2b-invoice">
+                {() => <ProtectedRoute component={B2BInvoice} adminOnly />}
+              </Route>
+              <Route path="/admin/reports">
+                {() => <ProtectedRoute component={Reports} adminOnly />}
+              </Route>
+              <Route path="/admin/expenses">
+                {() => <ProtectedRoute component={Expenses} adminOnly />}
+              </Route>
+              <Route path="/admin/stock-report">
+                {() => <ProtectedRoute component={StockReport} adminOnly />}
+              </Route>
+              <Route path="/">
+                {() => user.role === "admin" ? <Redirect to="/admin/dashboard" /> : <Redirect to="/create-invoice" />}
+              </Route>
+              <Route component={NotFound} />
+            </Switch>
           </main>
         </div>
       </div>

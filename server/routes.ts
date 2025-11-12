@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { generateToken, authMiddleware, adminMiddleware } from "./auth";
+import ExcelJS from "exceljs";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication
@@ -64,7 +65,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/products", authMiddleware, adminMiddleware, async (req, res) => {
     try {
-      const { name, category, rate, gstPercentage } = req.body;
+      const { name, category, rate, gstPercentage, comments } = req.body;
       
       if (!name || !rate || !gstPercentage) {
         return res.status(400).json({ message: "Missing required fields" });
@@ -75,6 +76,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         category: category || null,
         rate,
         gstPercentage,
+        comments: comments || null,
       });
 
       res.status(201).json(product);
@@ -87,13 +89,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/products/:id", authMiddleware, adminMiddleware, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const { name, category, rate, gstPercentage } = req.body;
+      const { name, category, rate, gstPercentage, comments } = req.body;
 
       const product = await storage.updateProduct(id, {
         name,
         category: category || null,
         rate,
         gstPercentage,
+        comments: comments || null,
       });
 
       if (!product) {
@@ -309,6 +312,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Expenses (admin only)
+  app.get("/api/expenses", authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+      const { startDate, endDate } = req.query;
+      const expenses = await storage.getExpenses({
+        startDate: startDate as string,
+        endDate: endDate as string,
+      });
+      res.json(expenses);
+    } catch (error) {
+      console.error("Get expenses error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  app.post("/api/expenses", authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+      const { description, amount, category } = req.body;
+
+      if (!description || !amount) {
+        return res.status(400).json({ message: "Missing required fields" });
+      }
+
+      const expense = await storage.createExpense({
+        description,
+        amount: amount.toString(),
+        category: category || null,
+      });
+
+      res.status(201).json(expense);
+    } catch (error) {
+      console.error("Create expense error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  app.patch("/api/expenses/:id", authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { description, amount, category } = req.body;
+
+      const expense = await storage.updateExpense(id, {
+        description,
+        amount: amount?.toString(),
+        category: category || null,
+      });
+
+      if (!expense) {
+        return res.status(404).json({ message: "Expense not found" });
+      }
+
+      res.json(expense);
+    } catch (error) {
+      console.error("Update expense error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  app.delete("/api/expenses/:id", authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteExpense(id);
+      res.status(204).send();
+    } catch (error) {
+      console.error("Delete expense error:", error);
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
   // Admin Stats (admin only)
   app.get("/api/admin/stats", authMiddleware, adminMiddleware, async (req, res) => {
     try {
@@ -334,7 +406,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         endDate: endDate as string,
       });
 
-      // Generate Excel-like data structure (simplified for demo)
+      // Calculate summary data
       const totalSales = invoices.reduce((sum, inv) => sum + parseFloat(inv.grandTotal), 0);
       const b2bSales = invoices
         .filter((inv) => inv.invoiceType === "B2B")
@@ -342,26 +414,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const b2cSales = invoices
         .filter((inv) => inv.invoiceType === "B2C")
         .reduce((sum, inv) => sum + parseFloat(inv.grandTotal), 0);
+      const cashSales = invoices
+        .filter((inv) => inv.paymentMode === "Cash")
+        .reduce((sum, inv) => sum + parseFloat(inv.grandTotal), 0);
+      const onlineSales = invoices
+        .filter((inv) => inv.paymentMode === "Online")
+        .reduce((sum, inv) => sum + parseFloat(inv.grandTotal), 0);
 
-      const reportData = {
-        summary: {
-          totalSales,
-          b2bSales,
-          b2cSales,
-          invoiceCount: invoices.length,
-        },
-        invoices: invoices.map((inv) => ({
-          invoiceNumber: inv.invoiceNumber,
-          date: inv.createdAt,
-          customer: inv.customerName,
-          type: inv.invoiceType,
-          paymentMode: inv.paymentMode,
-          amount: parseFloat(inv.grandTotal),
-        })),
+      // Create Excel workbook
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet("Sales Report");
+
+      // Add title
+      worksheet.mergeCells("A1:F1");
+      const titleCell = worksheet.getCell("A1");
+      titleCell.value = `Sales Report (${startDate} to ${endDate})`;
+      titleCell.font = { size: 16, bold: true };
+      titleCell.alignment = { horizontal: "center" };
+
+      // Add summary section
+      worksheet.addRow([]);
+      worksheet.addRow(["Summary"]);
+      worksheet.addRow(["Total Sales", totalSales.toFixed(2)]);
+      worksheet.addRow(["B2B Sales", b2bSales.toFixed(2)]);
+      worksheet.addRow(["B2C Sales", b2cSales.toFixed(2)]);
+      worksheet.addRow(["Cash Sales", cashSales.toFixed(2)]);
+      worksheet.addRow(["Online Sales", onlineSales.toFixed(2)]);
+      worksheet.addRow(["Total Invoices", invoices.length]);
+
+      // Add invoice details section
+      worksheet.addRow([]);
+      worksheet.addRow([]);
+      const headerRow = worksheet.addRow([
+        "Invoice Number",
+        "Date",
+        "Customer",
+        "Type",
+        "Payment Mode",
+        "Amount",
+      ]);
+      headerRow.font = { bold: true };
+      headerRow.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FFE0E0E0" },
       };
 
-      // For now, return JSON. In production, you'd generate actual Excel file
-      res.json(reportData);
+      // Add invoice data
+      invoices.forEach((inv) => {
+        worksheet.addRow([
+          inv.invoiceNumber,
+          new Date(inv.createdAt).toLocaleDateString("en-IN"),
+          inv.customerName,
+          inv.invoiceType,
+          inv.paymentMode,
+          parseFloat(inv.grandTotal).toFixed(2),
+        ]);
+      });
+
+      // Auto-fit columns
+      if (worksheet.columns) {
+        worksheet.columns.forEach((column) => {
+          if (column) {
+            let maxLength = 0;
+            column.eachCell({ includeEmpty: false }, (cell) => {
+              const cellValue = cell.value ? cell.value.toString() : "";
+              maxLength = Math.max(maxLength, cellValue.length);
+            });
+            column.width = Math.min(Math.max(maxLength + 2, 12), 40);
+          }
+        });
+      }
+
+      // Generate buffer and send
+      const buffer = await workbook.xlsx.writeBuffer();
+      
+      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+      res.setHeader("Content-Disposition", `attachment; filename=sales-report-${startDate}-to-${endDate}.xlsx`);
+      res.send(buffer);
     } catch (error) {
       console.error("Generate report error:", error);
       res.status(500).json({ message: "Server error" });

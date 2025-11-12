@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Plus, Edit, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 
@@ -18,6 +19,7 @@ interface Product {
   category: string | null;
   rate: string;
   gstPercentage: string;
+  comments: string | null;
 }
 
 export default function InventoryManagement() {
@@ -30,6 +32,7 @@ export default function InventoryManagement() {
     category: "",
     rate: "",
     gstPercentage: "18",
+    comments: "",
   });
 
   const { data: products = [], isLoading: loading } = useQuery<Product[]>({
@@ -47,7 +50,7 @@ export default function InventoryManagement() {
         description: "Product added successfully",
       });
       setIsAddDialogOpen(false);
-      setFormData({ name: "", category: "", rate: "", gstPercentage: "18" });
+      setFormData({ name: "", category: "", rate: "", gstPercentage: "18", comments: "" });
     },
     onError: () => {
       toast({
@@ -83,7 +86,7 @@ export default function InventoryManagement() {
       });
       setIsEditDialogOpen(false);
       setEditingProduct(null);
-      setFormData({ name: "", category: "", rate: "", gstPercentage: "18" });
+      setFormData({ name: "", category: "", rate: "", gstPercentage: "18", comments: "" });
     },
     onError: () => {
       toast({
@@ -139,6 +142,7 @@ export default function InventoryManagement() {
       category: product.category || "",
       rate: product.rate,
       gstPercentage: product.gstPercentage,
+      comments: product.comments || "",
     });
     setIsEditDialogOpen(true);
   };
@@ -209,6 +213,17 @@ export default function InventoryManagement() {
                     data-testid="input-gst-percentage"
                   />
                 </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="comments">Comments / Notes</Label>
+                <Textarea
+                  id="comments"
+                  value={formData.comments}
+                  onChange={(e) => setFormData({ ...formData, comments: e.target.value })}
+                  placeholder="Enter internal notes, lot numbers, etc. (optional)"
+                  rows={3}
+                  data-testid="input-product-comments"
+                />
               </div>
               <Button className="w-full" onClick={handleAdd} data-testid="button-submit-product">
                 Add Product
@@ -334,6 +349,17 @@ export default function InventoryManagement() {
                   placeholder="Enter GST %"
                 />
               </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-comments">Comments / Notes</Label>
+              <Textarea
+                id="edit-comments"
+                value={formData.comments}
+                onChange={(e) => setFormData({ ...formData, comments: e.target.value })}
+                placeholder="Enter internal notes, lot numbers, etc. (optional)"
+                rows={3}
+                data-testid="input-edit-product-comments"
+              />
             </div>
             <Button className="w-full" onClick={handleEdit}>
               Update Product

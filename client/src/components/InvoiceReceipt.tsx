@@ -57,10 +57,7 @@ export function InvoiceReceipt({
               margin: 0;
               padding: 0;
             }
-            .print\\:block {
-              display: block !important;
-            }
-            .hidden {
+            .no-print {
               display: none !important;
             }
           }

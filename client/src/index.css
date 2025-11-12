@@ -43,7 +43,7 @@
   --chart-3: 42.0290 92.8251% 56.2745%;
   --chart-4: 147.1429 78.5047% 41.9608%;
   --chart-5: 341.4894 75.2000% 50.9804%;
-  --font-sans: 'Lora', serif;
+  --font-sans: 'Inter', sans-serif;
   --font-serif: 'Geist', sans-serif;
   --font-mono: 'Space Grotesk', sans-serif;
   --radius: 0.875rem;
@@ -166,7 +166,7 @@
   --radius: 1.3rem;
   --spacing: 0.25rem;
   --font-mono: Menlo, monospace;
-  --font-sans: Open Sans, sans-serif;
+  --font-sans: 'Inter', sans-serif;
   --font-serif: Georgia, serif;
   --tracking-normal: 0em;
 }

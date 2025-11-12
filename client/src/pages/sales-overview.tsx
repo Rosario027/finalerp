@@ -24,20 +24,32 @@ export default function SalesOverview() {
   const { toast } = useToast();
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [searchParams, setSearchParams] = useState<{ startDate: string; endDate: string } | null>(null);
 
   const buildQueryKey = () => {
+    if (!searchParams) return "/api/invoices";
+    
     const params = new URLSearchParams();
-    if (startDate) params.append("startDate", startDate);
-    if (endDate) params.append("endDate", endDate);
-    return params.toString() ? `/api/invoices?${params.toString()}` : "/api/invoices";
+    if (searchParams.startDate) {
+      params.append("startDate", searchParams.startDate);
+    }
+    if (searchParams.endDate) {
+      params.append("endDate", searchParams.endDate);
+    }
+    return `/api/invoices?${params.toString()}`;
   };
 
-  const { data: invoices = [], isLoading: loading, refetch } = useQuery<Invoice[]>({
+  const { data: invoices = [], isLoading: loading } = useQuery<Invoice[]>({
     queryKey: [buildQueryKey()],
+    enabled: searchParams !== null,
   });
 
   const handleSearch = () => {
-    refetch();
+    const today = new Date().toISOString().split('T')[0];
+    setSearchParams({
+      startDate: startDate || today,
+      endDate: endDate || today,
+    });
   };
 
   const totalSales = invoices.reduce((sum, inv) => sum + parseFloat(inv.grandTotal), 0);
@@ -53,34 +65,6 @@ export default function SalesOverview() {
       <div className="mb-8">
         <h1 className="text-3xl font-semibold mb-2">Sales Overview</h1>
         <p className="text-muted-foreground">View and manage all invoices</p>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Sales</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold" data-testid="text-total-sales">₹{totalSales.toFixed(2)}</p>
-            <p className="text-sm text-muted-foreground mt-1">{invoices.length} invoices</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Cash Sales</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-chart-2" data-testid="text-cash-sales">₹{cashSales.toFixed(2)}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Online Sales</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-bold text-chart-1" data-testid="text-online-sales">₹{onlineSales.toFixed(2)}</p>
-          </CardContent>
-        </Card>
       </div>
 
       <Card>
@@ -170,6 +154,45 @@ export default function SalesOverview() {
           )}
         </CardContent>
       </Card>
+
+      {searchParams && invoices.length > 0 && (
+        <div className="mt-8">
+          <h2 className="text-xl font-semibold mb-4">Payment Breakdown</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Total Sales</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold" data-testid="text-total-sales">₹{totalSales.toFixed(2)}</p>
+                <p className="text-sm text-muted-foreground mt-1">{invoices.length} invoices</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Cash Sales</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-chart-2" data-testid="text-cash-sales">₹{cashSales.toFixed(2)}</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {invoices.filter(inv => inv.paymentMode === "Cash").length} invoices
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm font-medium text-muted-foreground">Online Sales</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-3xl font-bold text-chart-1" data-testid="text-online-sales">₹{onlineSales.toFixed(2)}</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {invoices.filter(inv => inv.paymentMode === "Online").length} invoices
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

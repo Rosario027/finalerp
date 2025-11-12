@@ -15,6 +15,7 @@ import AdminDashboard from "@/pages/admin-dashboard";
 import InventoryManagement from "@/pages/inventory-management";
 import B2BInvoice from "@/pages/b2b-invoice";
 import SalesReport from "@/pages/sales-report";
+import Expenses from "@/pages/expenses";
 import NotFound from "@/pages/not-found";
 
 function ProtectedRoute({ component: Component, adminOnly = false }: { component: any; adminOnly?: boolean }) {
@@ -76,6 +77,9 @@ function Router() {
               </Route>
               <Route path="/admin/sales-report">
                 {() => <ProtectedRoute component={SalesReport} adminOnly />}
+              </Route>
+              <Route path="/admin/expenses">
+                {() => <ProtectedRoute component={Expenses} adminOnly />}
               </Route>
               <Route path="/">
                 {() => user.role === "admin" ? <Redirect to="/admin/dashboard" /> : <Redirect to="/create-invoice" />}

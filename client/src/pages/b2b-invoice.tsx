@@ -19,6 +19,8 @@ interface InvoiceItem {
   hsnCode: string;
   rate: string;
   quantity: number;
+  gstPercentage: number;
+  gstAmount: number;
   taxableValue: number;
   cgstPercentage: number;
   cgstAmount: number;
@@ -71,6 +73,8 @@ export default function B2BInvoice() {
       hsnCode: product?.hsnCode || "",
       rate: item.rate,
       quantity: quantity,
+      gstPercentage: gstPercentage,
+      gstAmount: cgstAmount + sgstAmount,
       taxableValue: taxableValue,
       cgstPercentage: cgstPercentage,
       cgstAmount: cgstAmount,

@@ -204,31 +204,35 @@ export default function CreateInvoice() {
   useEffect(() => {
     if (items.length > 0) {
       const recalculatedItems = items.map(item => {
-        const rate = parseFloat(item.rate);
         const quantity = item.quantity;
         const totalGstPercentage = item.cgstPercentage + item.sgstPercentage;
         
-        let taxableValue: number;
+        // Use stored taxableValue as the canonical source of truth
+        const taxableValue = item.taxableValue;
+        
+        let rate: string;
         let cgstAmount: number;
         let sgstAmount: number;
         let total: number;
         
         if (paymentMode === "Cash") {
-          const baseAmount = rate * quantity;
-          const gstAmount = (baseAmount * totalGstPercentage) / (100 + totalGstPercentage);
-          taxableValue = baseAmount - gstAmount;
-          cgstAmount = gstAmount / 2;
-          sgstAmount = gstAmount / 2;
-          total = baseAmount;
-        } else {
-          taxableValue = rate * quantity;
+          // Calculate GST amounts from taxable value
           cgstAmount = (taxableValue * (totalGstPercentage / 2)) / 100;
           sgstAmount = (taxableValue * (totalGstPercentage / 2)) / 100;
           total = taxableValue + cgstAmount + sgstAmount;
+          // Rate in Cash mode is the inclusive price per unit
+          rate = (total / quantity).toFixed(2);
+        } else {
+          // Online mode: rate is exclusive price per unit
+          cgstAmount = (taxableValue * (totalGstPercentage / 2)) / 100;
+          sgstAmount = (taxableValue * (totalGstPercentage / 2)) / 100;
+          total = taxableValue + cgstAmount + sgstAmount;
+          rate = (taxableValue / quantity).toFixed(2);
         }
         
         return {
           ...item,
+          rate,
           gstPercentage: totalGstPercentage,
           gstAmount: cgstAmount + sgstAmount,
           taxableValue,
@@ -242,7 +246,7 @@ export default function CreateInvoice() {
       const hasChanges = recalculatedItems.some((newItem, index) => {
         const oldItem = items[index];
         return (
-          Math.abs(newItem.taxableValue - oldItem.taxableValue) > 0.001 ||
+          newItem.rate !== oldItem.rate ||
           Math.abs(newItem.cgstAmount - oldItem.cgstAmount) > 0.001 ||
           Math.abs(newItem.sgstAmount - oldItem.sgstAmount) > 0.001 ||
           Math.abs(newItem.total - oldItem.total) > 0.001

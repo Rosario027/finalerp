@@ -18,6 +18,7 @@ export const products = pgTable("products", {
   category: text("category"),
   rate: decimal("rate", { precision: 10, scale: 2 }).notNull(),
   gstPercentage: decimal("gst_percentage", { precision: 5, scale: 2 }).notNull(),
+  quantity: integer("quantity").default(0).notNull(),
   comments: text("comments"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

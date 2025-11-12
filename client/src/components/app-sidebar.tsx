@@ -38,6 +38,11 @@ export function AppSidebar() {
       icon: TrendingUp,
     },
     {
+      title: "Sales Overview",
+      url: "/sales-overview",
+      icon: BarChart3,
+    },
+    {
       title: "Inventory Management",
       url: "/admin/inventory",
       icon: Package,

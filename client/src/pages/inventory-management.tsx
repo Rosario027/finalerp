@@ -20,6 +20,7 @@ interface Product {
   category: string | null;
   rate: string;
   gstPercentage: string;
+  quantity: number;
   comments: string | null;
 }
 
@@ -34,6 +35,7 @@ export default function InventoryManagement() {
     category: "",
     rate: "",
     gstPercentage: "18",
+    quantity: "0",
     comments: "",
   });
 
@@ -52,7 +54,7 @@ export default function InventoryManagement() {
         description: "Product added successfully",
       });
       setIsAddDialogOpen(false);
-      setFormData({ name: "", hsnCode: "", category: "", rate: "", gstPercentage: "18", comments: "" });
+      setFormData({ name: "", hsnCode: "", category: "", rate: "", gstPercentage: "18", quantity: "0", comments: "" });
     },
     onError: () => {
       toast({
@@ -88,7 +90,7 @@ export default function InventoryManagement() {
       });
       setIsEditDialogOpen(false);
       setEditingProduct(null);
-      setFormData({ name: "", hsnCode: "", category: "", rate: "", gstPercentage: "18", comments: "" });
+      setFormData({ name: "", hsnCode: "", category: "", rate: "", gstPercentage: "18", quantity: "0", comments: "" });
     },
     onError: () => {
       toast({
@@ -145,6 +147,7 @@ export default function InventoryManagement() {
       category: product.category || "",
       rate: product.rate,
       gstPercentage: product.gstPercentage,
+      quantity: String(product.quantity || 0),
       comments: product.comments || "",
     });
     setIsEditDialogOpen(true);
@@ -267,6 +270,8 @@ export default function InventoryManagement() {
                     <TableHead className="font-semibold">Category</TableHead>
                     <TableHead className="font-semibold text-right">Rate (₹)</TableHead>
                     <TableHead className="font-semibold text-center">GST %</TableHead>
+                    <TableHead className="font-semibold text-center">Quantity</TableHead>
+                    <TableHead className="font-semibold">Comments</TableHead>
                     <TableHead className="font-semibold text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -287,6 +292,12 @@ export default function InventoryManagement() {
                       <TableCell className="text-right font-semibold">₹{parseFloat(product.rate).toFixed(2)}</TableCell>
                       <TableCell className="text-center">
                         <Badge variant="outline">{product.gstPercentage}%</Badge>
+                      </TableCell>
+                      <TableCell className="text-center font-semibold">
+                        {product.quantity || 0}
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {product.comments || "-"}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-2">

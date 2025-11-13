@@ -125,3 +125,7 @@ export type InsertExpense = z.infer<typeof insertExpenseSchema>;
 export type InvoiceWithItems = Invoice & {
   items: InvoiceItem[];
 };
+
+export type ProductWithQtySold = Product & {
+  qtySold?: number;
+};

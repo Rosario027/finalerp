@@ -43,8 +43,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Products (protected routes)
   app.get("/api/products", authMiddleware, async (req, res) => {
     try {
-      const products = await storage.getProducts();
-      res.json(products);
+      const { startDate, endDate } = req.query;
+      
+      // If date range is provided, calculate qtySold
+      if (startDate && endDate) {
+        // Validate that both dates are provided
+        if (!startDate || !endDate) {
+          return res.status(400).json({ message: "Both startDate and endDate are required" });
+        }
+
+        // Parse YYYY-MM-DD strings in local timezone
+        const [startYear, startMonth, startDay] = (startDate as string).split('-').map(Number);
+        const startDateObj = new Date(startYear, startMonth - 1, startDay, 0, 0, 0, 0);
+
+        const [endYear, endMonth, endDay] = (endDate as string).split('-').map(Number);
+        const endDateObj = new Date(endYear, endMonth - 1, endDay, 23, 59, 59, 999);
+
+        // Validate date range
+        if (startDateObj > endDateObj) {
+          return res.status(400).json({ message: "startDate must be less than or equal to endDate" });
+        }
+
+        const productsWithQtySold = await db
+          .select({
+            id: products.id,
+            name: products.name,
+            hsnCode: products.hsnCode,
+            category: products.category,
+            rate: products.rate,
+            gstPercentage: products.gstPercentage,
+            quantity: products.quantity,
+            comments: products.comments,
+            createdAt: products.createdAt,
+            deletedAt: products.deletedAt,
+            qtySold: sql<number>`COALESCE(SUM(CASE 
+              WHEN ${invoices.id} IS NOT NULL
+              AND ${invoices.createdAt} >= ${startDateObj} 
+              AND ${invoices.createdAt} <= ${endDateObj}
+              AND ${invoices.deletedAt} IS NULL 
+              THEN ${invoiceItems.quantity} 
+              ELSE 0 
+            END), 0)`,
+          })
+          .from(products)
+          .leftJoin(invoiceItems, eq(products.id, invoiceItems.productId))
+          .leftJoin(invoices, eq(invoiceItems.invoiceId, invoices.id))
+          .where(isNull(products.deletedAt))
+          .groupBy(
+            products.id,
+            products.name,
+            products.hsnCode,
+            products.category,
+            products.rate,
+            products.gstPercentage,
+            products.quantity,
+            products.comments,
+            products.createdAt,
+            products.deletedAt
+          );
+
+        res.json(productsWithQtySold);
+      } else {
+        // No date range provided, return products without qtySold
+        const productsData = await storage.getProducts();
+        res.json(productsData);
+      }
     } catch (error) {
       res.status(500).json({ message: "Server error" });
     }
@@ -649,9 +712,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Missing date range" });
       }
 
-      const startDateObj = new Date(startDate as string);
-      const endDateObj = new Date(endDate as string);
-      endDateObj.setHours(23, 59, 59, 999);
+      // Parse YYYY-MM-DD strings in local timezone
+      const [startYear, startMonth, startDay] = (startDate as string).split('-').map(Number);
+      const startDateObj = new Date(startYear, startMonth - 1, startDay, 0, 0, 0, 0);
+
+      const [endYear, endMonth, endDay] = (endDate as string).split('-').map(Number);
+      const endDateObj = new Date(endYear, endMonth - 1, endDay, 23, 59, 59, 999);
+
+      // Validate date range
+      if (startDateObj > endDateObj) {
+        return res.status(400).json({ message: "startDate must be less than or equal to endDate" });
+      }
 
       // Use LEFT JOIN from products to invoice_items to include all products (even deleted)
       // This is necessary because qtySold shows historical sales data

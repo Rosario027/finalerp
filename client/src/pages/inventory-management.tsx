@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import type { ProductWithQtySold } from "@shared/schema";
 
 interface Product {
   id: number;
@@ -22,6 +23,7 @@ interface Product {
   gstPercentage: string;
   quantity: number;
   comments: string | null;
+  qtySold?: number;
 }
 
 export default function InventoryManagement() {
@@ -39,8 +41,55 @@ export default function InventoryManagement() {
     comments: "",
   });
 
+  // Helper function to format date in local timezone
+  const formatDateLocal = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
+  // Initialize date range to current month
+  const now = new Date();
+  const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+  
+  const [startDate, setStartDate] = useState(formatDateLocal(firstDay));
+  const [endDate, setEndDate] = useState(formatDateLocal(lastDay));
+
   const { data: products = [], isLoading: loading } = useQuery<Product[]>({
-    queryKey: ["/api/products"],
+    queryKey: ["/api/products", startDate, endDate],
+    queryFn: async () => {
+      if (!startDate || !endDate) {
+        const response = await fetch("/api/products", {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        });
+        
+        if (!response.ok) {
+          throw new Error("Failed to fetch products");
+        }
+        
+        return response.json();
+      }
+      
+      const response = await fetch(
+        `/api/products?startDate=${startDate}&endDate=${endDate}`,
+        {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        }
+      );
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch products");
+      }
+      
+      return response.json();
+    },
+    enabled: !!startDate && !!endDate,
   });
 
   const addMutation = useMutation({
@@ -271,6 +320,42 @@ export default function InventoryManagement() {
         </Dialog>
       </div>
 
+      <Card className="mb-6">
+        <CardHeader>
+          <CardTitle className="text-lg font-medium">Date Range Filter</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <Label htmlFor="startDate" className="text-sm font-medium">
+                Start Date <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="startDate"
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="h-12"
+                data-testid="input-start-date"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="endDate" className="text-sm font-medium">
+                End Date <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="endDate"
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="h-12"
+                data-testid="input-end-date"
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardHeader>
           <CardTitle className="text-lg font-medium">Products</CardTitle>
@@ -293,6 +378,7 @@ export default function InventoryManagement() {
                     <TableHead className="font-semibold text-right">Rate (₹)</TableHead>
                     <TableHead className="font-semibold text-center">GST %</TableHead>
                     <TableHead className="font-semibold text-center">Quantity</TableHead>
+                    <TableHead className="font-semibold text-center">Qty Sold</TableHead>
                     <TableHead className="font-semibold">Comments</TableHead>
                     <TableHead className="font-semibold text-right">Actions</TableHead>
                   </TableRow>
@@ -317,6 +403,9 @@ export default function InventoryManagement() {
                       </TableCell>
                       <TableCell className="text-center font-semibold">
                         {product.quantity || 0}
+                      </TableCell>
+                      <TableCell className="text-center font-bold" data-testid={`text-qty-sold-${product.id}`}>
+                        {product.qtySold !== undefined ? product.qtySold : 0}
                       </TableCell>
                       <TableCell className="text-sm text-muted-foreground">
                         {product.comments || "-"}

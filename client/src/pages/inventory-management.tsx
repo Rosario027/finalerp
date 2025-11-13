@@ -44,7 +44,7 @@ export default function InventoryManagement() {
   });
 
   const addMutation = useMutation({
-    mutationFn: async (data: typeof formData) => {
+    mutationFn: async (data: Omit<typeof formData, 'quantity'> & { quantity: number }) => {
       return await apiRequest("POST", "/api/products", data);
     },
     onSuccess: () => {
@@ -84,7 +84,7 @@ export default function InventoryManagement() {
   };
 
   const editMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: typeof formData }) => {
+    mutationFn: async ({ id, data }: { id: number; data: Omit<typeof formData, 'quantity'> & { quantity: number } }) => {
       return await apiRequest("PATCH", `/api/products/${id}`, data);
     },
     onSuccess: () => {
@@ -177,7 +177,7 @@ export default function InventoryManagement() {
               Add Product
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Add New Product</DialogTitle>
             </DialogHeader>
@@ -351,7 +351,7 @@ export default function InventoryManagement() {
       </Card>
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Product</DialogTitle>
           </DialogHeader>

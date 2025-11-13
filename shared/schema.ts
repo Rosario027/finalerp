@@ -21,6 +21,7 @@ export const products = pgTable("products", {
   quantity: integer("quantity").default(0).notNull(),
   comments: text("comments"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
 });
 
 export const invoices = pgTable("invoices", {
@@ -88,23 +89,19 @@ export const insertUserSchema = createInsertSchema(users).omit({
 });
 
 export const insertProductSchema = createInsertSchema(products).omit({
-  id: true,
   createdAt: true,
+  deletedAt: true,
 });
 
 export const insertInvoiceSchema = createInsertSchema(invoices).omit({
-  id: true,
   deletedAt: true,
   createdAt: true,
   updatedAt: true,
 });
 
-export const insertInvoiceItemSchema = createInsertSchema(invoiceItems).omit({
-  id: true,
-});
+export const insertInvoiceItemSchema = createInsertSchema(invoiceItems);
 
 export const insertExpenseSchema = createInsertSchema(expenses).omit({
-  id: true,
   createdAt: true,
 });
 

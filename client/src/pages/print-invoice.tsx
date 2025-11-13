@@ -1,4 +1,4 @@
-import { useRoute } from "wouter";
+import { useRoute, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { SHOP_INFO } from "@shared/shopInfo";
 import logoImg from "@assets/1762677792449-0d76ba93-0eba-48fa-927f-62011c24e28f_1_1762963626825.jpg";
@@ -18,6 +18,7 @@ interface InvoiceItem {
 interface InvoiceData {
   id: number;
   invoiceNumber: string;
+  invoiceType: string;
   customerName: string;
   customerPhone: string;
   createdAt: string;
@@ -28,6 +29,7 @@ interface InvoiceData {
 
 export default function PrintInvoice() {
   const [, params] = useRoute("/print-invoice/:id");
+  const [, setLocation] = useLocation();
   const invoiceId = params?.id ? parseInt(params.id) : null;
 
   const { data: invoice, isLoading } = useQuery<InvoiceData>({
@@ -40,8 +42,22 @@ export default function PrintInvoice() {
       setTimeout(() => {
         window.print();
       }, 500);
+
+      const handleAfterPrint = () => {
+        if (invoice.invoiceType === "B2B") {
+          setLocation("/admin/b2b-invoice");
+        } else {
+          setLocation("/create-invoice");
+        }
+      };
+
+      window.addEventListener("afterprint", handleAfterPrint);
+
+      return () => {
+        window.removeEventListener("afterprint", handleAfterPrint);
+      };
     }
-  }, [invoice, isLoading]);
+  }, [invoice, isLoading, setLocation]);
 
   if (isLoading) {
     return (

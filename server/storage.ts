@@ -27,6 +27,7 @@ export interface IStorage {
   
   // Products
   getProducts(): Promise<Product[]>;
+  getAllProducts(): Promise<Product[]>;
   getProduct(id: number): Promise<Product | undefined>;
   createProduct(product: InsertProduct): Promise<Product>;
   updateProduct(id: number, product: Partial<InsertProduct>): Promise<Product | undefined>;
@@ -74,6 +75,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getProducts(): Promise<Product[]> {
+    return await db.select().from(products).where(isNull(products.deletedAt)).orderBy(desc(products.createdAt));
+  }
+
+  async getAllProducts(): Promise<Product[]> {
     return await db.select().from(products).orderBy(desc(products.createdAt));
   }
 
@@ -97,15 +102,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteProduct(id: number): Promise<boolean> {
-    try {
-      await db.delete(products).where(eq(products.id, id));
-      return true;
-    } catch (error: any) {
-      if (error.code === '23503' || error.message?.includes('foreign key constraint')) {
-        throw new Error("Cannot delete product that has been used in invoices");
-      }
-      throw error;
-    }
+    const [updated] = await db
+      .update(products)
+      .set({ deletedAt: new Date() })
+      .where(eq(products.id, id))
+      .returning();
+    return !!updated;
   }
 
   async getInvoices(filters?: { startDate?: string; endDate?: string; includeDeleted?: boolean }): Promise<Invoice[]> {

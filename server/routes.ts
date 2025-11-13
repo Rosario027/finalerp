@@ -1,6 +1,9 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { db } from "./db";
+import { invoices, invoiceItems, products } from "@shared/schema";
+import { eq, and, gte, lte, sql, isNull } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { generateToken, authMiddleware, adminMiddleware } from "./auth";
@@ -41,6 +44,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/products", authMiddleware, async (req, res) => {
     try {
       const products = await storage.getProducts();
+      res.json(products);
+    } catch (error) {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  app.get("/api/products/all", authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+      const products = await storage.getAllProducts();
       res.json(products);
     } catch (error) {
       res.status(500).json({ message: "Server error" });
@@ -448,7 +460,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Add invoice details section
       worksheet.addRow([]);
-      worksheet.addRow([]);
       const headerRow = worksheet.addRow([
         "Invoice Number",
         "Date",
@@ -632,81 +643,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/reports/stock", authMiddleware, adminMiddleware, async (req, res) => {
     try {
-      const products = await storage.getProducts();
+      const { startDate, endDate } = req.query;
 
-      const workbook = new ExcelJS.Workbook();
-      const worksheet = workbook.addWorksheet("Stock Report");
-
-      worksheet.mergeCells("A1:H1");
-      const titleCell = worksheet.getCell("A1");
-      titleCell.value = `Stock Report - Generated on ${new Date().toLocaleDateString("en-IN")}`;
-      titleCell.font = { size: 16, bold: true };
-      titleCell.alignment = { horizontal: "center" };
-
-      worksheet.addRow([]);
-      worksheet.addRow(["Summary"]);
-      worksheet.addRow(["Total Products", products.length]);
-      const lowStockThreshold = 10;
-      const outOfStock = products.filter(p => (p.quantity || 0) === 0).length;
-      const lowStock = products.filter(p => (p.quantity || 0) > 0 && (p.quantity || 0) <= lowStockThreshold).length;
-      worksheet.addRow(["Out of Stock", outOfStock]);
-      worksheet.addRow(["Low Stock (≤10)", lowStock]);
-
-      worksheet.addRow([]);
-      worksheet.addRow([]);
-      const headerRow = worksheet.addRow([
-        "Product Name",
-        "HSN Code",
-        "Category",
-        "Rate (₹)",
-        "GST %",
-        "Stock Quantity",
-        "Status",
-        "Comments",
-      ]);
-      headerRow.font = { bold: true };
-      headerRow.fill = {
-        type: "pattern",
-        pattern: "solid",
-        fgColor: { argb: "FFE0E0E0" },
-      };
-
-      products.forEach((product) => {
-        const quantity = product.quantity || 0;
-        const status = quantity === 0 ? "Out of Stock" : quantity <= lowStockThreshold ? "Low Stock" : "In Stock";
-
-        worksheet.addRow([
-          product.name,
-          product.hsnCode,
-          product.category || "-",
-          parseFloat(product.rate).toFixed(2),
-          product.gstPercentage,
-          quantity,
-          status,
-          product.comments || "-",
-        ]);
-      });
-
-      if (worksheet.columns) {
-        worksheet.columns.forEach((column) => {
-          if (column && column.eachCell) {
-            let maxLength = 0;
-            column.eachCell({ includeEmpty: false }, (cell) => {
-              const cellValue = cell.value ? cell.value.toString() : "";
-              maxLength = Math.max(maxLength, cellValue.length);
-            });
-            column.width = Math.min(Math.max(maxLength + 2, 12), 40);
-          }
-        });
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "Missing date range" });
       }
 
-      const buffer = await workbook.xlsx.writeBuffer();
-      
-      const date = new Date().toISOString().split("T")[0];
-      res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
-      res.setHeader("Content-Disposition", `attachment; filename=stock-report-${date}.xlsx`);
-      res.send(buffer);
+      const startDateObj = new Date(startDate as string);
+      const endDateObj = new Date(endDate as string);
+      endDateObj.setHours(23, 59, 59, 999);
+
+      // Use LEFT JOIN from products to invoice_items to include all products (even deleted)
+      // This is necessary because qtySold shows historical sales data
+      const stockData = await db
+        .select({
+          id: products.id,
+          name: products.name,
+          category: products.category,
+          hsnCode: products.hsnCode,
+          rate: products.rate,
+          gstPercentage: products.gstPercentage,
+          quantity: products.quantity,
+          qtySold: sql<number>`COALESCE(SUM(CASE 
+            WHEN ${invoices.id} IS NOT NULL
+            AND ${invoices.createdAt} >= ${startDateObj} 
+            AND ${invoices.createdAt} <= ${endDateObj}
+            AND ${invoices.deletedAt} IS NULL 
+            THEN ${invoiceItems.quantity} 
+            ELSE 0 
+          END), 0)`,
+        })
+        .from(products)
+        .leftJoin(invoiceItems, eq(products.id, invoiceItems.productId))
+        .leftJoin(invoices, eq(invoiceItems.invoiceId, invoices.id))
+        .groupBy(
+          products.id,
+          products.name,
+          products.category,
+          products.hsnCode,
+          products.rate,
+          products.gstPercentage,
+          products.quantity
+        );
+
+      res.json(stockData);
     } catch (error) {
+      console.error("Error generating stock report:", error);
       res.status(500).json({ message: "Server error" });
     }
   });

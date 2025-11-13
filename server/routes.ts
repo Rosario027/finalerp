@@ -43,71 +43,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Products (protected routes)
   app.get("/api/products", authMiddleware, async (req, res) => {
     try {
-      const { startDate, endDate } = req.query;
-      
-      // If date range is provided, calculate qtySold
-      if (startDate && endDate) {
-        // Validate that both dates are provided
-        if (!startDate || !endDate) {
-          return res.status(400).json({ message: "Both startDate and endDate are required" });
-        }
-
-        // Parse YYYY-MM-DD strings in local timezone
-        const [startYear, startMonth, startDay] = (startDate as string).split('-').map(Number);
-        const startDateObj = new Date(startYear, startMonth - 1, startDay, 0, 0, 0, 0);
-
-        const [endYear, endMonth, endDay] = (endDate as string).split('-').map(Number);
-        const endDateObj = new Date(endYear, endMonth - 1, endDay, 23, 59, 59, 999);
-
-        // Validate date range
-        if (startDateObj > endDateObj) {
-          return res.status(400).json({ message: "startDate must be less than or equal to endDate" });
-        }
-
-        const productsWithQtySold = await db
-          .select({
-            id: products.id,
-            name: products.name,
-            hsnCode: products.hsnCode,
-            category: products.category,
-            rate: products.rate,
-            gstPercentage: products.gstPercentage,
-            quantity: products.quantity,
-            comments: products.comments,
-            createdAt: products.createdAt,
-            deletedAt: products.deletedAt,
-            qtySold: sql<number>`COALESCE(SUM(CASE 
-              WHEN ${invoices.id} IS NOT NULL
-              AND ${invoices.createdAt} >= ${startDateObj} 
-              AND ${invoices.createdAt} <= ${endDateObj}
-              AND ${invoices.deletedAt} IS NULL 
-              THEN ${invoiceItems.quantity} 
-              ELSE 0 
-            END), 0)`,
-          })
-          .from(products)
-          .leftJoin(invoiceItems, eq(products.id, invoiceItems.productId))
-          .leftJoin(invoices, eq(invoiceItems.invoiceId, invoices.id))
-          .where(isNull(products.deletedAt))
-          .groupBy(
-            products.id,
-            products.name,
-            products.hsnCode,
-            products.category,
-            products.rate,
-            products.gstPercentage,
-            products.quantity,
-            products.comments,
-            products.createdAt,
-            products.deletedAt
-          );
-
-        res.json(productsWithQtySold);
-      } else {
-        // No date range provided, return products without qtySold
-        const productsData = await storage.getProducts();
-        res.json(productsData);
-      }
+      const productsData = await storage.getProducts();
+      res.json(productsData);
     } catch (error) {
       res.status(500).json({ message: "Server error" });
     }
@@ -700,66 +637,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.setHeader("Content-Disposition", `attachment; filename=expenses-report-${startDate}-to-${endDate}.xlsx`);
       res.send(buffer);
     } catch (error) {
-      res.status(500).json({ message: "Server error" });
-    }
-  });
-
-  app.get("/api/reports/stock", authMiddleware, adminMiddleware, async (req, res) => {
-    try {
-      const { startDate, endDate } = req.query;
-
-      if (!startDate || !endDate) {
-        return res.status(400).json({ message: "Missing date range" });
-      }
-
-      // Parse YYYY-MM-DD strings in local timezone
-      const [startYear, startMonth, startDay] = (startDate as string).split('-').map(Number);
-      const startDateObj = new Date(startYear, startMonth - 1, startDay, 0, 0, 0, 0);
-
-      const [endYear, endMonth, endDay] = (endDate as string).split('-').map(Number);
-      const endDateObj = new Date(endYear, endMonth - 1, endDay, 23, 59, 59, 999);
-
-      // Validate date range
-      if (startDateObj > endDateObj) {
-        return res.status(400).json({ message: "startDate must be less than or equal to endDate" });
-      }
-
-      // Use LEFT JOIN from products to invoice_items to include all products (even deleted)
-      // This is necessary because qtySold shows historical sales data
-      const stockData = await db
-        .select({
-          id: products.id,
-          name: products.name,
-          category: products.category,
-          hsnCode: products.hsnCode,
-          rate: products.rate,
-          gstPercentage: products.gstPercentage,
-          quantity: products.quantity,
-          qtySold: sql<number>`COALESCE(SUM(CASE 
-            WHEN ${invoices.id} IS NOT NULL
-            AND ${invoices.createdAt} >= ${startDateObj} 
-            AND ${invoices.createdAt} <= ${endDateObj}
-            AND ${invoices.deletedAt} IS NULL 
-            THEN ${invoiceItems.quantity} 
-            ELSE 0 
-          END), 0)`,
-        })
-        .from(products)
-        .leftJoin(invoiceItems, eq(products.id, invoiceItems.productId))
-        .leftJoin(invoices, eq(invoiceItems.invoiceId, invoices.id))
-        .groupBy(
-          products.id,
-          products.name,
-          products.category,
-          products.hsnCode,
-          products.rate,
-          products.gstPercentage,
-          products.quantity
-        );
-
-      res.json(stockData);
-    } catch (error) {
-      console.error("Error generating stock report:", error);
       res.status(500).json({ message: "Server error" });
     }
   });

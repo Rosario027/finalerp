@@ -4,6 +4,7 @@ import {
   invoices,
   invoiceItems,
   expenses,
+  settings,
   type User,
   type InsertUser,
   type Product,
@@ -14,6 +15,8 @@ import {
   type InsertInvoiceItem,
   type Expense,
   type InsertExpense,
+  type Setting,
+  type InsertSetting,
   type InvoiceWithItems,
 } from "@shared/schema";
 import { db } from "./db";
@@ -24,6 +27,9 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  getAllUsers(): Promise<User[]>;
+  updateUserPassword(userId: string, newPassword: string): Promise<void>;
+  deleteUser(userId: string): Promise<void>;
   
   // Products
   getProducts(): Promise<Product[]>;
@@ -39,7 +45,12 @@ export interface IStorage {
   createInvoice(invoice: InsertInvoice, items: InsertInvoiceItem[]): Promise<Invoice>;
   updateInvoice(id: number, invoice: Partial<InsertInvoice>, items?: InsertInvoiceItem[]): Promise<Invoice | undefined>;
   softDeleteInvoice(id: number): Promise<Invoice | undefined>;
-  getNextInvoiceNumber(type: "B2C" | "B2B"): Promise<string>;
+  getNextInvoiceNumber(): Promise<string>;
+  
+  // Settings
+  getSettings(): Promise<Setting[]>;
+  getSetting(key: string): Promise<Setting | null>;
+  setSetting(key: string, value: string): Promise<Setting>;
   
   // Expenses
   getExpenses(filters?: { startDate?: string; endDate?: string }): Promise<Expense[]>;
@@ -72,6 +83,21 @@ export class DatabaseStorage implements IStorage {
   async createUser(insertUser: InsertUser): Promise<User> {
     const [user] = await db.insert(users).values(insertUser).returning();
     return user;
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return await db.select().from(users);
+  }
+
+  async updateUserPassword(userId: string, newPassword: string): Promise<void> {
+    await db
+      .update(users)
+      .set({ password: newPassword })
+      .where(eq(users.id, userId));
+  }
+
+  async deleteUser(userId: string): Promise<void> {
+    await db.delete(users).where(eq(users.id, userId));
   }
 
   async getProducts(): Promise<Product[]> {
@@ -189,30 +215,71 @@ export class DatabaseStorage implements IStorage {
     return updated || undefined;
   }
 
-  async getNextInvoiceNumber(type: "B2C" | "B2B"): Promise<string> {
+  async getNextInvoiceNumber(): Promise<string> {
     const now = new Date();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const year = String(now.getFullYear()).slice(-2);
-    const prefix = type === "B2C" ? "AZC" : "AZB";
-
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth(); // 0-11
+    
+    // Determine Financial Year (FY)
+    // FY runs from April (month 3) to March (month 2)
+    let fyStartYear: number;
+    let fyEndYear: number;
+    
+    if (currentMonth >= 3) {
+      // April to December: FY is current year to next year
+      fyStartYear = currentYear;
+      fyEndYear = currentYear + 1;
+    } else {
+      // January to March: FY is previous year to current year
+      fyStartYear = currentYear - 1;
+      fyEndYear = currentYear;
+    }
+    
+    const fyString = `${String(fyStartYear).slice(-2)}-${String(fyEndYear).slice(-2)}`;
+    const fyPrefix = `FY${fyString}/`;
+    
+    // Get invoice_series_start from settings (default: 1)
+    const seriesStartSetting = await this.getSetting("invoice_series_start");
+    const seriesStart = seriesStartSetting ? parseInt(seriesStartSetting.value, 10) : 1;
+    
+    // Count invoices with this FY prefix
     const result = await db
       .select({ count: sql<number>`count(*)` })
       .from(invoices)
-      .where(
-        and(
-          eq(invoices.invoiceType, type),
-          gte(invoices.createdAt, startOfMonth),
-          lte(invoices.createdAt, endOfMonth)
-        )
-      );
-
+      .where(sql`${invoices.invoiceNumber} LIKE ${fyPrefix + '%'}`);
+    
     const count = Number(result[0]?.count || 0);
-    const nextNumber = String(count + 1).padStart(4, "0");
+    const nextNum = seriesStart + count;
+    
+    return `${fyPrefix}${nextNum.toString().padStart(3, '0')}`;
+  }
 
-    return `${prefix}${month}${year}${nextNumber}`;
+  async getSettings(): Promise<Setting[]> {
+    return await db.select().from(settings);
+  }
+
+  async getSetting(key: string): Promise<Setting | null> {
+    const [setting] = await db.select().from(settings).where(eq(settings.key, key));
+    return setting || null;
+  }
+
+  async setSetting(key: string, value: string): Promise<Setting> {
+    const existing = await this.getSetting(key);
+    
+    if (existing) {
+      const [updated] = await db
+        .update(settings)
+        .set({ value, updatedAt: new Date() })
+        .where(eq(settings.key, key))
+        .returning();
+      return updated;
+    } else {
+      const [newSetting] = await db
+        .insert(settings)
+        .values({ key, value })
+        .returning();
+      return newSetting;
+    }
   }
 
   async getExpenses(filters?: { startDate?: string; endDate?: string }): Promise<Expense[]> {

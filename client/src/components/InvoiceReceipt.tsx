@@ -100,20 +100,12 @@ export function InvoiceReceipt({
           <div style={{ fontSize: "16px", fontWeight: "bold", marginBottom: "4px" }}>
             {SHOP_INFO.name}
           </div>
-          <div style={{ fontSize: "10px", marginBottom: "2px" }}>
-            {SHOP_INFO.fullAddress}
-          </div>
-          <div style={{ fontSize: "10px", marginBottom: "2px" }}>
-            Email: {SHOP_INFO.email}
+          <div style={{ fontSize: "10px", marginBottom: "2px", whiteSpace: "pre-line" }}>
+            {SHOP_INFO.address}
           </div>
           <div style={{ fontSize: "10px", marginBottom: "2px" }}>
             Phone: {SHOP_INFO.phone}
           </div>
-          {SHOP_INFO.additionalPhones.length > 0 && (
-            <div style={{ fontSize: "10px", marginBottom: "2px" }}>
-              {SHOP_INFO.additionalPhones.join(", ")}
-            </div>
-          )}
           <div style={{ fontSize: "10px", marginBottom: "8px" }}>
             GST: {SHOP_INFO.gstNumber}
           </div>
@@ -229,7 +221,7 @@ export function InvoiceReceipt({
           fontStyle: "italic",
           marginTop: "8px",
         }}>
-          {SHOP_INFO.footerMessage}
+          Thank you for your business!
         </div>
       </div>
     </div>

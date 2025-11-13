@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { db } from "./db";
-import { invoices, invoiceItems, products } from "@shared/schema";
+import { invoices, invoiceItems, products, insertUserSchema } from "@shared/schema";
 import { eq, and, gte, lte, sql, isNull } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
@@ -135,12 +135,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Invoices (protected routes)
   app.get("/api/invoices/next-number", authMiddleware, async (req, res) => {
     try {
-      const type = req.query.type as "B2C" | "B2B";
-      if (!type || (type !== "B2C" && type !== "B2B")) {
-        return res.status(400).json({ message: "Invalid invoice type" });
-      }
-
-      const invoiceNumber = await storage.getNextInvoiceNumber(type);
+      const invoiceNumber = await storage.getNextInvoiceNumber();
       res.json({ invoiceNumber });
     } catch (error) {
       res.status(500).json({ message: "Server error" });
@@ -182,7 +177,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Missing required fields" });
       }
 
-      const invoiceNumber = await storage.getNextInvoiceNumber(invoiceType);
+      const invoiceNumber = await storage.getNextInvoiceNumber();
 
       // Calculate totals from new CGST/SGST structure
       let subtotal = 0;
@@ -636,6 +631,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
       res.setHeader("Content-Disposition", `attachment; filename=expenses-report-${startDate}-to-${endDate}.xlsx`);
       res.send(buffer);
+    } catch (error) {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // Settings - admin only
+  app.get("/api/settings", authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+      const settings = await storage.getSettings();
+      res.json(settings);
+    } catch (error) {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  app.post("/api/settings", authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+      const { key, value } = req.body;
+      const setting = await storage.setSetting(key, value);
+      res.json(setting);
+    } catch (error) {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  // User management - admin only
+  app.get("/api/users", authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      res.json(users.map(u => ({ id: u.id, username: u.username, role: u.role })));
+    } catch (error) {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  app.post("/api/users", authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+      const validated = insertUserSchema.parse(req.body);
+      const hashedPassword = await bcrypt.hash(validated.password, 10);
+      const user = await storage.createUser({ ...validated, password: hashedPassword });
+      res.json({ id: user.id, username: user.username, role: user.role });
+    } catch (error) {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  app.patch("/api/users/:id/password", authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+      const { newPassword } = req.body;
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      await storage.updateUserPassword(req.params.id, hashedPassword);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
+  app.delete("/api/users/:id", authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+      await storage.deleteUser(req.params.id);
+      res.json({ success: true });
     } catch (error) {
       res.status(500).json({ message: "Server error" });
     }

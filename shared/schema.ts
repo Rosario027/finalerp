@@ -29,7 +29,7 @@ export const invoices = pgTable("invoices", {
   invoiceNumber: text("invoice_number").notNull().unique(),
   invoiceType: text("invoice_type").notNull(), // 'B2C' or 'B2B'
   customerName: text("customer_name").notNull(),
-  customerPhone: text("customer_phone").notNull(),
+  customerPhone: text("customer_phone"),
   customerGst: text("customer_gst"), // Only for B2B
   paymentMode: text("payment_mode").notNull(), // 'Cash' or 'Online'
   subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
@@ -65,6 +65,13 @@ export const expenses = pgTable("expenses", {
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
   category: text("category"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const settings = pgTable("settings", {
+  id: integer("id").primaryKey().generatedAlwaysAsIdentity(),
+  key: text("key").notNull().unique(),
+  value: text("value").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 
 // Relations
@@ -105,6 +112,10 @@ export const insertExpenseSchema = createInsertSchema(expenses).omit({
   createdAt: true,
 });
 
+export const insertSettingSchema = createInsertSchema(settings).omit({
+  updatedAt: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -120,6 +131,9 @@ export type InsertInvoiceItem = z.infer<typeof insertInvoiceItemSchema>;
 
 export type Expense = typeof expenses.$inferSelect;
 export type InsertExpense = z.infer<typeof insertExpenseSchema>;
+
+export type Setting = typeof settings.$inferSelect;
+export type InsertSetting = z.infer<typeof insertSettingSchema>;
 
 // Extended types for frontend
 export type InvoiceWithItems = Invoice & {

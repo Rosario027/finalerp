@@ -8,7 +8,7 @@ The system handles both B2C (Business to Consumer) and B2B (Business to Business
 
 ## Recent Changes (November 2025)
 
-### User Management & Navigation Improvements (Latest)
+### User Management & Navigation Improvements (Latest - November 14, 2025)
 - **Enhanced User Management in Settings Page**:
   - Full edit functionality: Modify username and role for existing users
   - Partial update support: Can update username or role independently
@@ -19,13 +19,15 @@ The system handles both B2C (Business to Consumer) and B2B (Business to Business
   - Timestamp-based reset logic prevents multiple print issues
   - Works for both B2C and B2B invoice types
   - No state loss or race conditions
-- **Auto-Logout Bug Fixed**:
-  - Print route moved inside authenticated section in App.tsx
-  - User role no longer logged out when accessing print page
-  - Auth context maintained throughout print workflow
-- **Shop Name Updated**:
-  - Changed from "AMAZEON" to "AMAZEON SHOPPING" in print templates
-  - Updated in shared/shopInfo.ts
+- **Auto-Logout Bug Fixes**:
+  - **Fix 1**: Print route moved inside authenticated section in App.tsx - prevents logout when accessing print page
+  - **Fix 2**: Removed 403 error from auto-logout logic - users no longer logged out when accessing unauthorized endpoints (e.g., regular users accessing admin-only features)
+  - Auth context maintained throughout application workflow
+  - Only 401 errors (truly unauthorized) trigger logout, not 403 (insufficient permissions)
+- **Invoice Print Template Updates**:
+  - Shop name changed from "AMAZEON" to "AMAZEON SHOPPING"
+  - Last line changed to "Thank you for shopping" (previously "Thank you for your business!")
+  - Updated in shared/shopInfo.ts and print-invoice.tsx
 
 ### Settings Page Implementation
 - Added admin-only Settings page at `/admin/settings`

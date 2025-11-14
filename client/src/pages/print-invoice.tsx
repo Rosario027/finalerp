@@ -225,7 +225,7 @@ export default function PrintInvoice() {
         <div style={{ borderTop: "1px dashed #000", margin: "8px 0" }} />
 
         <div style={{ textAlign: "center", fontSize: "10px", marginTop: "12px" }}>
-          <div>Thank you for your business!</div>
+          <div>Thank you for shopping</div>
           <div style={{ marginTop: "4px" }}>Visit again</div>
         </div>
       </div>

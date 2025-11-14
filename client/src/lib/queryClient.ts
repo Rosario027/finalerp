@@ -8,7 +8,7 @@ function handleUnauthorized() {
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
-    if (res.status === 401 || res.status === 403) {
+    if (res.status === 401) {
       handleUnauthorized();
       throw new Error("Unauthorized - redirecting to login");
     }
@@ -60,7 +60,7 @@ export const getQueryFn: <T>(options: {
       headers,
     });
 
-    if (unauthorizedBehavior === "returnNull" && (res.status === 401 || res.status === 403)) {
+    if (unauthorizedBehavior === "returnNull" && res.status === 401) {
       return null;
     }
 

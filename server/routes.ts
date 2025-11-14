@@ -171,9 +171,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/invoices", authMiddleware, async (req, res) => {
     try {
-      const { invoiceType, customerName, customerPhone, customerGst, paymentMode, items } = req.body;
+      const { invoiceType, customerName, customerPhone, customerGst, paymentMode, gstMode, items } = req.body;
 
-      if (!invoiceType || !customerName || !paymentMode || !items || items.length === 0) {
+      if (!invoiceType || !customerName || !paymentMode || !gstMode || !items || items.length === 0) {
         return res.status(400).json({ message: "Missing required fields" });
       }
 
@@ -221,6 +221,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           customerPhone: customerPhone || null,
           customerGst: customerGst || null,
           paymentMode,
+          gstMode,
           subtotal: subtotal.toString(),
           gstAmount: totalGst.toString(),
           grandTotal: grandTotal.toString(),

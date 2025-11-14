@@ -151,39 +151,9 @@ export default function B2BInvoice() {
     },
   });
 
-  useEffect(() => {
-    if (items.length > 0) {
-      const recalculatedItems = items.map(item => {
-        const quantity = item.quantity;
-        const gstPercentage = item.cgstPercentage + item.sgstPercentage;
-        
-        // Use originalRate if available, otherwise fallback to current rate
-        const originalRateValue = item.originalRate || parseFloat(item.rate);
-        
-        // Determine GST mode based on payment mode
-        const gstMode = paymentMode === "Cash" ? cashGstMode : onlineGstMode;
-        const calculated = calculateInvoiceItem(originalRateValue, quantity, gstPercentage, gstMode);
-        
-        return {
-          ...item,
-          rate: originalRateValue.toFixed(2),
-          taxableValue: calculated.taxableValue,
-          cgstPercentage: gstPercentage / 2,
-          cgstAmount: calculated.cgstAmount,
-          sgstPercentage: gstPercentage / 2,
-          sgstAmount: calculated.sgstAmount,
-          gstPercentage,
-          gstAmount: calculated.gstAmount,
-          total: calculated.total,
-          originalRate: originalRateValue,
-          originalMode: item.originalMode || paymentMode,
-        };
-      });
-      
-      setItems(recalculatedItems);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paymentMode, cashGstMode, onlineGstMode]);
+  // Note: Recalculation effect removed to prevent incorrect totals when GST settings change
+  // Items are calculated once when added, using the GST mode active at that time
+  // Payment mode is locked once items are added, so no recalculation is needed
 
   const handleSave = async () => {
     if (!customerName || !customerGst || items.length === 0) {
@@ -195,11 +165,15 @@ export default function B2BInvoice() {
       return;
     }
 
+    // Determine gstMode based on current payment mode setting
+    const gstMode = paymentMode === "Cash" ? cashGstMode : onlineGstMode;
+
     saveMutation.mutate({
       invoiceType: "B2B",
       customerName,
       customerGst,
       paymentMode,
+      gstMode,
       items: items.map((item) => ({
         productId: item.productId,
         itemName: item.itemName,
@@ -281,7 +255,7 @@ export default function B2BInvoice() {
                 <Label htmlFor="paymentMode" className="text-sm font-medium">
                   Payment Mode <span className="text-destructive">*</span>
                 </Label>
-                <Select value={paymentMode} onValueChange={(value: "Cash" | "Online") => setPaymentMode(value)}>
+                <Select value={paymentMode} onValueChange={(value: "Cash" | "Online") => setPaymentMode(value)} disabled={items.length > 0}>
                   <SelectTrigger className="h-12" data-testid="select-b2b-payment-mode">
                     <SelectValue />
                   </SelectTrigger>
@@ -290,6 +264,12 @@ export default function B2BInvoice() {
                     <SelectItem value="Online">Online</SelectItem>
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-muted-foreground">
+                  {items.length > 0
+                    ? "Payment mode cannot be changed after adding items"
+                    : (paymentMode === "Cash" ? `Cash: GST ${cashGstMode === 'inclusive' ? 'included in' : 'added to'} rate` : `Online: GST ${onlineGstMode === 'inclusive' ? 'included in' : 'added to'} rate`)
+                  }
+                </p>
               </div>
 
               <div className="space-y-4">

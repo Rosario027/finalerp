@@ -171,10 +171,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createInvoice(invoice: InsertInvoice, items: InsertInvoiceItem[]): Promise<Invoice> {
-    // Normalize undefined customerPhone to null for database insert
+    // Normalize undefined customerPhone to null and ensure gstMode is explicitly set
     const normalizedInvoice = {
       ...invoice,
       customerPhone: invoice.customerPhone ?? null,
+      gstMode: invoice.gstMode ?? 'inclusive', // Explicitly include gstMode to override schema default
     };
     
     const [newInvoice] = await db.insert(invoices).values(normalizedInvoice).returning();
@@ -192,11 +193,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateInvoice(id: number, invoice: Partial<InsertInvoice>, items?: InsertInvoiceItem[]): Promise<Invoice | undefined> {
-    // Normalize undefined customerPhone to null for database update
+    // Normalize undefined customerPhone to null
     const normalizedInvoice = {
       ...invoice,
       customerPhone: invoice.customerPhone ?? null,
     };
+    // CRITICAL: Remove gstMode from update to preserve historical data integrity.
+    // Once an invoice is created with a specific GST mode (inclusive/exclusive),
+    // it must never change - even if global settings are updated later.
+    // This prevents mixed GST modes within a single invoice and ensures calculations remain consistent.
+    delete normalizedInvoice.gstMode;
     
     const [updated] = await db
       .update(invoices)

@@ -32,6 +32,7 @@ export const invoices = pgTable("invoices", {
   customerPhone: text("customer_phone"),
   customerGst: text("customer_gst"), // Only for B2B
   paymentMode: text("payment_mode").notNull(), // 'Cash' or 'Online'
+  gstMode: text("gst_mode").notNull().default('inclusive'), // 'inclusive' or 'exclusive' - GST mode used for this invoice
   subtotal: decimal("subtotal", { precision: 10, scale: 2 }).notNull(),
   gstAmount: decimal("gst_amount", { precision: 10, scale: 2 }).notNull(),
   grandTotal: decimal("grand_total", { precision: 10, scale: 2 }).notNull(),

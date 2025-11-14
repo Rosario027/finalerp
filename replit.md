@@ -36,9 +36,31 @@ The system handles both B2C (Business to Consumer) and B2B (Business to Business
 - Removed email field from shop info and print templates
 - Simplified shop info structure: name, address, phone, gstNumber
 
+### GST Calculation Settings (November 2025)
+- **Configurable GST Modes**: Admin can configure GST calculation mode (inclusive/exclusive) separately for Cash and Online payment types
+- **Settings Page UI**: Added "GST Calculation Settings" section with dropdowns for cash_gst_mode and online_gst_mode
+- **Mode Persistence**: Each invoice stores its gstMode at creation to ensure historical data integrity
+- **Protection Mechanisms**:
+  - Payment mode locked once items are added to prevent recalculation issues
+  - No automatic recalculation when GST settings change
+  - Edit mode uses stored gstMode, not current global settings
+- **Database Schema**: Added `gst_mode` column to `invoices` table (default: 'inclusive')
+- **Implementation Status**:
+  ✅ Schema updated with gstMode field
+  ✅ Backend saves and preserves gstMode correctly
+  ✅ Frontend sends gstMode based on payment type
+  ✅ Edit mode uses stored gstMode for new items
+  ✅ No recalculation effect (items calculated once)
+  ⚠️ Existing 20 invoices backfilled with default 'inclusive' (may not match actual mode used)
+- **Technical Details**:
+  - Drizzle ORM fix: Explicitly include gstMode in insert to override schema default
+  - Update operations preserve original gstMode (no modification allowed)
+  - Cash mode defaults to inclusive, Online mode defaults to exclusive
+
 ### Database Schema Updates
 - Added `settings` table for key-value configuration storage
 - Modified `invoices.customerPhone` to nullable text column
+- Added `invoices.gstMode` text column with default 'inclusive'
 - All changes applied via Drizzle schema push
 
 ## User Preferences

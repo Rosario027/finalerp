@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Key, Trash2 } from "lucide-react";
+import { Plus, Key, Trash2, Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -19,12 +19,17 @@ export default function Settings() {
   
   // User Management State
   const [isAddUserDialogOpen, setIsAddUserDialogOpen] = useState(false);
+  const [isEditUserDialogOpen, setIsEditUserDialogOpen] = useState(false);
   const [isResetPasswordDialogOpen, setIsResetPasswordDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
   const [userFormData, setUserFormData] = useState({
     username: "",
     password: "",
+    role: "user" as "admin" | "user",
+  });
+  const [editUserFormData, setEditUserFormData] = useState({
+    username: "",
     role: "user" as "admin" | "user",
   });
   const [newPassword, setNewPassword] = useState("");
@@ -114,6 +119,30 @@ export default function Settings() {
         variant: "destructive",
         title: "Error",
         description: error.message || "Failed to add user",
+      });
+    },
+  });
+
+  // Edit User Mutation
+  const editUserMutation = useMutation({
+    mutationFn: async (data: { id: string; username: string; role: string }) => {
+      return await apiRequest("PATCH", `/api/users/${data.id}`, { username: data.username, role: data.role });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      toast({
+        title: "Success",
+        description: "User updated successfully",
+      });
+      setIsEditUserDialogOpen(false);
+      setSelectedUser(null);
+      setEditUserFormData({ username: "", role: "user" });
+    },
+    onError: (error: any) => {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: error.message || "Failed to update user",
       });
     },
   });
@@ -218,6 +247,22 @@ export default function Settings() {
       return;
     }
     addUserMutation.mutate(userFormData);
+  };
+
+  const handleEditUser = () => {
+    if (!selectedUser || !editUserFormData.username) {
+      toast({
+        variant: "destructive",
+        title: "Validation Error",
+        description: "Please fill in all required fields",
+      });
+      return;
+    }
+    editUserMutation.mutate({
+      id: selectedUser.id,
+      username: editUserFormData.username,
+      role: editUserFormData.role,
+    });
   };
 
   const handleResetPassword = () => {
@@ -372,6 +417,19 @@ export default function Settings() {
                             size="sm"
                             onClick={() => {
                               setSelectedUser(user);
+                              setEditUserFormData({ username: user.username, role: user.role as "admin" | "user" });
+                              setIsEditUserDialogOpen(true);
+                            }}
+                            data-testid={`button-edit-user-${user.id}`}
+                          >
+                            <Pencil className="h-4 w-4 mr-2" />
+                            Edit
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              setSelectedUser(user);
                               setIsResetPasswordDialogOpen(true);
                             }}
                             data-testid={`button-reset-password-${user.id}`}
@@ -509,6 +567,50 @@ export default function Settings() {
           </Button>
         </CardContent>
       </Card>
+
+      {/* Edit User Dialog */}
+      <Dialog open={isEditUserDialogOpen} onOpenChange={setIsEditUserDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit User</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="editUsername">Username <span className="text-destructive">*</span></Label>
+              <Input
+                id="editUsername"
+                value={editUserFormData.username}
+                onChange={(e) => setEditUserFormData({ ...editUserFormData, username: e.target.value })}
+                placeholder="Enter username"
+                data-testid="input-edit-username"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="editRole">Role <span className="text-destructive">*</span></Label>
+              <Select
+                value={editUserFormData.role}
+                onValueChange={(value: "admin" | "user") => setEditUserFormData({ ...editUserFormData, role: value })}
+              >
+                <SelectTrigger id="editRole" data-testid="select-edit-role">
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="user" data-testid="option-edit-role-user">User</SelectItem>
+                  <SelectItem value="admin" data-testid="option-edit-role-admin">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button 
+              className="w-full" 
+              onClick={handleEditUser} 
+              disabled={editUserMutation.isPending}
+              data-testid="button-submit-edit-user"
+            >
+              {editUserMutation.isPending ? "Updating..." : "Update User"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Reset Password Dialog */}
       <Dialog open={isResetPasswordDialogOpen} onOpenChange={setIsResetPasswordDialogOpen}>

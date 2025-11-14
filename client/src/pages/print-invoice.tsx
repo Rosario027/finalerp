@@ -44,10 +44,12 @@ export default function PrintInvoice() {
       }, 500);
 
       const handleAfterPrint = () => {
+        // Navigate to blank new invoice screen after printing
+        // Add timestamp to force component remount and reset state
         if (invoice.invoiceType === "B2B") {
-          setLocation("/admin/b2b-invoice");
+          setLocation("/admin/b2b-invoice?new=" + Date.now());
         } else {
-          setLocation("/create-invoice");
+          setLocation("/create-invoice?new=" + Date.now());
         }
       };
 

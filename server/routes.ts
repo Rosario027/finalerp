@@ -678,10 +678,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/users/:id", authMiddleware, adminMiddleware, async (req, res) => {
+    try {
+      const updateSchema = z.object({
+        username: z.string().trim().min(1, "Username cannot be empty").optional(),
+        role: z.enum(["admin", "user"]).optional(),
+      }).refine(data => data.username !== undefined || data.role !== undefined, {
+        message: "At least one field (username or role) must be provided"
+      });
+      const validated = updateSchema.parse(req.body);
+      
+      // Only update fields that are provided
+      const updateData: { username?: string; role?: string } = {};
+      if (validated.username !== undefined) updateData.username = validated.username;
+      if (validated.role !== undefined) updateData.role = validated.role;
+      
+      const updated = await storage.updateUser(req.params.id, updateData);
+      if (!updated) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      res.json({ id: updated.id, username: updated.username, role: updated.role });
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ message: error.errors[0]?.message || "Validation error" });
+      }
+      res.status(500).json({ message: "Server error" });
+    }
+  });
+
   app.patch("/api/users/:id/password", authMiddleware, adminMiddleware, async (req, res) => {
     try {
-      const { newPassword } = req.body;
-      const hashedPassword = await bcrypt.hash(newPassword, 10);
+      const { password } = req.body;
+      const hashedPassword = await bcrypt.hash(password, 10);
       await storage.updateUserPassword(req.params.id, hashedPassword);
       res.json({ success: true });
     } catch (error) {

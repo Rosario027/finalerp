@@ -39,7 +39,6 @@ function Router() {
 
   return (
     <Switch>
-      <Route path="/print-invoice/:id" component={PrintInvoice} />
       {!user && (
         <>
           <Route path="/" component={Login} />
@@ -73,6 +72,7 @@ function renderMainApp(user: any) {
           </header>
           <main className="flex-1 overflow-auto">
             <Switch>
+              <Route path="/print-invoice/:id" component={PrintInvoice} />
               <Route path="/create-invoice">
                 {() => <ProtectedRoute component={CreateInvoice} />}
               </Route>

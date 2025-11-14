@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +11,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { InvoiceItemDialog } from "@/components/InvoiceItemDialog";
 import { InvoiceReceipt } from "@/components/InvoiceReceipt";
-import { useLocation } from "wouter";
+import { useLocation, useSearch } from "wouter";
 import { calculateInvoiceItem, type GstMode } from "@shared/gstCalculations";
 
 interface InvoiceItem {
@@ -35,11 +35,28 @@ interface InvoiceItem {
 export default function B2BInvoice() {
   const { toast } = useToast();
   const [, setLocation] = useLocation();
+  const searchString = useSearch();
+  const urlParams = new URLSearchParams(searchString);
+  const newTimestamp = urlParams.get('new');
+  
   const [customerName, setCustomerName] = useState("");
   const [customerGst, setCustomerGst] = useState("");
   const [paymentMode, setPaymentMode] = useState<"Cash" | "Online">("Online");
   const [items, setItems] = useState<InvoiceItem[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const lastResetTimestamp = useRef<string | null>(null);
+
+  // Reset form to blank state when navigating back from print with ?new= parameter
+  useEffect(() => {
+    if (newTimestamp && newTimestamp !== lastResetTimestamp.current) {
+      lastResetTimestamp.current = newTimestamp;
+      setCustomerName("");
+      setCustomerGst("");
+      setPaymentMode("Online");
+      setItems([]);
+      setDialogOpen(false);
+    }
+  }, [newTimestamp]);
 
   const { data: invoiceNumberData } = useQuery<{ invoiceNumber: string }>({
     queryKey: ["/api/invoices/next-number"],

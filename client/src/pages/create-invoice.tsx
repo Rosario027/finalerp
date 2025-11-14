@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -38,6 +38,7 @@ export default function CreateInvoice() {
   const searchString = useSearch();
   const urlParams = new URLSearchParams(searchString);
   const editInvoiceId = urlParams.get('edit');
+  const newTimestamp = urlParams.get('new');
   const isEditing = !!editInvoiceId;
 
   const [customerName, setCustomerName] = useState("");
@@ -46,6 +47,20 @@ export default function CreateInvoice() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [invoiceNumberForEdit, setInvoiceNumberForEdit] = useState("");
   const [storedGstMode, setStoredGstMode] = useState<GstMode | null>(null);
+  const lastResetTimestamp = useRef<string | null>(null);
+
+  // Reset form to blank state when navigating back from print with ?new= parameter
+  useEffect(() => {
+    if (newTimestamp && !isEditing && newTimestamp !== lastResetTimestamp.current) {
+      lastResetTimestamp.current = newTimestamp;
+      setCustomerName("");
+      setPaymentMode("Cash");
+      setItems([]);
+      setDialogOpen(false);
+      setInvoiceNumberForEdit("");
+      setStoredGstMode(null);
+    }
+  }, [newTimestamp, isEditing]);
 
   const { data: existingInvoice } = useQuery<any>({
     queryKey: [`/api/invoices/${editInvoiceId || 'new'}`],

@@ -10,6 +10,11 @@ import { generateToken, authMiddleware, adminMiddleware } from "./auth";
 import ExcelJS from "exceljs";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Simple health check (always works)
+  app.get("/api/health", (req, res) => {
+    res.json({ status: "ok", message: "Server is running" });
+  });
+
   // Database health check endpoint (for debugging)
   app.get("/api/health/db", async (req, res) => {
     try {
@@ -48,13 +53,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("[LOGIN] Validating credentials, querying database...");
       
       // Add timeout wrapper for database query
+      // Increased timeout to 30 seconds to allow Neon databases to wake up
       const queryStart = Date.now();
       const queryPromise = storage.getUserByUsername(username);
       const timeoutPromise = new Promise<never>((_, reject) => 
         setTimeout(() => {
           const elapsed = Date.now() - queryStart;
-          reject(new Error(`Database query timeout after ${elapsed}ms`));
-        }, 10000)
+          reject(new Error(`Database query timeout after ${elapsed}ms. Check DATABASE_URL and ensure database is accessible.`));
+        }, 30000)
       );
 
       let user;
@@ -114,10 +120,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Always include error message in production for debugging
-      res.status(500).json({ 
+      const errorResponse: any = { 
         message: "Server error", 
         error: errorMessage
-      });
+      };
+      
+      // Include stack trace in development
+      if (process.env.NODE_ENV === "development" && errorStack) {
+        errorResponse.stack = errorStack;
+      }
+      
+      res.status(500).json(errorResponse);
     }
   });
 

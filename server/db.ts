@@ -12,10 +12,11 @@ if (!process.env.DATABASE_URL) {
 }
 
 // Configure pool with connection limits and timeout
+// Note: Increased timeout for Neon serverless databases which may need to "wake up"
 export const pool = new Pool({ 
   connectionString: process.env.DATABASE_URL,
   max: 10, // Maximum number of connections in the pool
-  connectionTimeoutMillis: 10000, // 10 second connection timeout
+  connectionTimeoutMillis: 30000, // 30 second connection timeout (increased for Neon wake-up)
   idleTimeoutMillis: 30000, // 30 seconds before closing idle connections
 });
 

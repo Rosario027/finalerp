@@ -70,12 +70,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log("[LOGIN] Database query completed", { queryTime: `${queryTime}ms`, userFound: !!user });
       } catch (queryError) {
         const queryTime = Date.now() - queryStart;
+        
+        // Extract error message properly
+        let errorMsg = "Database query failed";
+        if (queryError instanceof Error) {
+          errorMsg = queryError.message;
+        } else if (queryError && typeof queryError === "object") {
+          errorMsg = (queryError as any).message || (queryError as any).error || JSON.stringify(queryError).substring(0, 200);
+        } else {
+          errorMsg = String(queryError);
+        }
+        
         console.error("[LOGIN] Database query failed", { 
-          error: queryError instanceof Error ? queryError.message : String(queryError),
+          error: errorMsg,
+          errorType: typeof queryError,
+          errorConstructor: queryError?.constructor?.name,
           queryTime: `${queryTime}ms`,
-          elapsed: `${Date.now() - startTime}ms`
+          elapsed: `${Date.now() - startTime}ms`,
+          fullError: queryError
         });
-        throw queryError;
+        
+        // Ensure we throw an Error object
+        if (queryError instanceof Error) {
+          throw queryError;
+        } else {
+          throw new Error(errorMsg);
+        }
       }
       
       if (!user) {
@@ -106,11 +126,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       const totalTime = Date.now() - startTime;
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      const errorStack = error instanceof Error ? error.stack : undefined;
+      
+      // Handle all error types
+      let errorMessage = "Unknown error";
+      let errorStack: string | undefined;
+      let errorDetails: any = {};
+      
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        errorStack = error.stack;
+        errorDetails = { name: error.name, message: error.message };
+      } else if (typeof error === "string") {
+        errorMessage = error;
+      } else if (error && typeof error === "object") {
+        try {
+          errorMessage = String(error);
+          errorDetails = JSON.parse(JSON.stringify(error));
+        } catch {
+          errorMessage = String(error);
+        }
+      } else {
+        errorMessage = String(error || "Unknown error");
+      }
       
       console.error("[LOGIN] Login error occurred", { 
         error: errorMessage,
+        errorType: typeof error,
+        errorConstructor: error?.constructor?.name,
+        errorDetails,
         totalTime: `${totalTime}ms`,
         username: req.body?.username
       });
@@ -119,11 +162,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("[LOGIN] Error stack:", errorStack);
       }
       
+      // Log the full error object for debugging
+      console.error("[LOGIN] Full error object:", error);
+      
       // Always include error message in production for debugging
       const errorResponse: any = { 
         message: "Server error", 
         error: errorMessage
       };
+      
+      // Include additional details if available
+      if (errorDetails && Object.keys(errorDetails).length > 0) {
+        errorResponse.details = errorDetails;
+      }
       
       // Include stack trace in development
       if (process.env.NODE_ENV === "development" && errorStack) {

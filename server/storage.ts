@@ -89,9 +89,46 @@ export class DatabaseStorage implements IStorage {
       });
       return user || undefined;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error("[STORAGE] getUserByUsername error", { username, error: errorMessage });
-      throw error;
+      // Extract error message properly from any error type
+      let errorMessage = "Unknown database error";
+      let errorDetails: any = {};
+      
+      if (error instanceof Error) {
+        errorMessage = error.message || error.name || "Database error";
+        errorDetails = {
+          name: error.name,
+          message: error.message,
+          stack: error.stack,
+          ...(error as any)
+        };
+      } else if (error && typeof error === "object") {
+        try {
+          // Try to extract message from object
+          errorMessage = (error as any).message || (error as any).error || (error as any).code || JSON.stringify(error).substring(0, 200);
+          errorDetails = { ...error };
+        } catch {
+          errorMessage = String(error).substring(0, 200);
+        }
+      } else {
+        errorMessage = String(error || "Unknown error");
+      }
+      
+      console.error("[STORAGE] getUserByUsername error", { 
+        username, 
+        error: errorMessage,
+        errorType: typeof error,
+        errorConstructor: error?.constructor?.name,
+        errorDetails: errorDetails
+      });
+      
+      // Always throw an Error object so it can be properly caught upstream
+      const errorToThrow = error instanceof Error ? error : new Error(errorMessage);
+      if (error && typeof error === "object" && !(error instanceof Error)) {
+        // Preserve all error properties
+        Object.assign(errorToThrow, error);
+      }
+      
+      throw errorToThrow;
     }
   }
 

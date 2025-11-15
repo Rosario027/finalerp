@@ -1,6 +1,5 @@
 import { Pool, neonConfig } from '@neondatabase/serverless';
 import { drizzle } from 'drizzle-orm/neon-serverless';
-import { sql } from 'drizzle-orm';
 import ws from "ws";
 import * as schema from "@shared/schema";
 
@@ -22,15 +21,6 @@ export const pool = new Pool({
 
 export const db = drizzle({ client: pool, schema });
 
-// Test database connection on startup
-(async () => {
-  try {
-    await db.execute(sql`SELECT 1`);
-    console.log("✅ Database connection test successful");
-  } catch (err) {
-    console.error("❌ Database connection test failed:", err);
-    const dbUrl = process.env.DATABASE_URL || '';
-    const maskedUrl = dbUrl.replace(/:[^:@]+@/, ':****@');
-    console.error("DATABASE_URL:", maskedUrl);
-  }
-})();
+// Note: Connection test removed to prevent crashes with Neon driver + Node.js 22
+// The first actual query will test the connection anyway
+// If you see connection errors, check your DATABASE_URL environment variable

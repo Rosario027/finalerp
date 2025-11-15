@@ -10,33 +10,114 @@ import { generateToken, authMiddleware, adminMiddleware } from "./auth";
 import ExcelJS from "exceljs";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Database health check endpoint (for debugging)
+  app.get("/api/health/db", async (req, res) => {
+    try {
+      const start = Date.now();
+      // Test simple query
+      const result = await db.execute(sql`SELECT 1 as test`);
+      const duration = Date.now() - start;
+      res.json({ 
+        status: "ok", 
+        message: "Database connection successful",
+        duration: `${duration}ms`,
+        result: result.rows?.[0] || result
+      });
+    } catch (error) {
+      console.error("Database health check error:", error);
+      res.status(500).json({ 
+        status: "error", 
+        message: "Database connection failed",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
   // Authentication
   app.post("/api/auth/login", async (req, res) => {
+    const startTime = Date.now();
+    console.log("[LOGIN] Login attempt started", { username: req.body?.username });
+    
     try {
       const { username, password } = req.body;
 
-      const user = await storage.getUserByUsername(username);
+      if (!username || !password) {
+        return res.status(400).json({ message: "Username and password are required" });
+      }
+
+      console.log("[LOGIN] Validating credentials, querying database...");
+      
+      // Add timeout wrapper for database query
+      const queryStart = Date.now();
+      const queryPromise = storage.getUserByUsername(username);
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => {
+          const elapsed = Date.now() - queryStart;
+          reject(new Error(`Database query timeout after ${elapsed}ms`));
+        }, 10000)
+      );
+
+      let user;
+      try {
+        user = await Promise.race([queryPromise, timeoutPromise]) as Awaited<ReturnType<typeof storage.getUserByUsername>>;
+        const queryTime = Date.now() - queryStart;
+        console.log("[LOGIN] Database query completed", { queryTime: `${queryTime}ms`, userFound: !!user });
+      } catch (queryError) {
+        const queryTime = Date.now() - queryStart;
+        console.error("[LOGIN] Database query failed", { 
+          error: queryError instanceof Error ? queryError.message : String(queryError),
+          queryTime: `${queryTime}ms`,
+          elapsed: `${Date.now() - startTime}ms`
+        });
+        throw queryError;
+      }
+      
       if (!user) {
+        console.log("[LOGIN] User not found", { username });
         return res.status(401).json({ message: "Invalid credentials" });
       }
 
+      console.log("[LOGIN] User found, comparing password...");
       const isValid = await bcrypt.compare(password, user.password);
       if (!isValid) {
+        console.log("[LOGIN] Password mismatch");
         return res.status(401).json({ message: "Invalid credentials" });
       }
 
+      console.log("[LOGIN] Password valid, generating token...");
       const token = generateToken({
         userId: user.id,
         username: user.username,
         role: user.role,
       });
 
+      const totalTime = Date.now() - startTime;
+      console.log("[LOGIN] Login successful", { username: user.username, role: user.role, totalTime: `${totalTime}ms` });
+
       res.json({
         user: { id: user.id, username: user.username, role: user.role },
         token,
       });
     } catch (error) {
-      res.status(500).json({ message: "Server error" });
+      const totalTime = Date.now() - startTime;
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      
+      console.error("[LOGIN] Login error occurred", { 
+        error: errorMessage,
+        totalTime: `${totalTime}ms`,
+        username: req.body?.username
+      });
+      
+      if (errorStack) {
+        console.error("[LOGIN] Error stack:", errorStack);
+      }
+      
+      // Always include error message in production for debugging
+      res.status(500).json({ 
+        message: "Server error", 
+        error: errorMessage
+      });
     }
   });
 

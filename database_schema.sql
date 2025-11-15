@@ -83,12 +83,14 @@ CREATE TABLE IF NOT EXISTS "settings" (
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
 
--- Create admin user with password: admin@2025
--- This is a pre-generated bcrypt hash for "admin@2025"
+-- Create admin user with password: admin
+-- This is a pre-generated bcrypt hash for "admin"
 INSERT INTO users (username, password, role)
 VALUES (
   'admin',
-  '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy',
+  '$2b$10$.3Dd5MtmHGMYnvfxyPvKHegWDd5S9Aa2BUDFqDkb4KoN/wz.a6in2',
   'admin'
 )
-ON CONFLICT (username) DO NOTHING;
+ON CONFLICT (username) DO UPDATE
+SET password = EXCLUDED.password,
+    role = EXCLUDED.role;

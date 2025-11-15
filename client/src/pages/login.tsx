@@ -77,6 +77,8 @@ export default function Login() {
               <Input
                 id="username"
                 type="text"
+                name="username"
+                autoComplete="username"
                 placeholder="Enter your user ID"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
@@ -92,6 +94,8 @@ export default function Login() {
               <Input
                 id="password"
                 type="password"
+                name="password"
+                autoComplete="current-password"
                 placeholder="Enter your password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}

@@ -333,6 +333,8 @@ export default function Settings() {
                     <Label htmlFor="username">Username <span className="text-destructive">*</span></Label>
                     <Input
                       id="username"
+                      name="username"
+                      autoComplete="username"
                       value={userFormData.username}
                       onChange={(e) => setUserFormData({ ...userFormData, username: e.target.value })}
                       placeholder="Enter username"
@@ -344,6 +346,8 @@ export default function Settings() {
                     <Input
                       id="password"
                       type="password"
+                      name="password"
+                      autoComplete="new-password"
                       value={userFormData.password}
                       onChange={(e) => setUserFormData({ ...userFormData, password: e.target.value })}
                       placeholder="Enter password"
@@ -627,6 +631,8 @@ export default function Settings() {
               <Input
                 id="newPassword"
                 type="password"
+                name="newPassword"
+                autoComplete="new-password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="Enter new password"

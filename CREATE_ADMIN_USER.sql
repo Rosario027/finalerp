@@ -4,19 +4,19 @@
 -- First, make sure you have the pgcrypto extension enabled
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
--- Insert admin user (password: admin@2025)
+-- Insert admin user (password: admin)
 -- The password is hashed with bcrypt
-INSERT INTO users (id, username, password, role)
+INSERT INTO users (username, password, role)
 VALUES (
-  gen_random_uuid(),
   'admin',
-  '$2a$10$rOzJqZqZqZqZqZqZqZqZqOqZqZqZqZqZqZqZqZqZqZqZqZqZqZq',
+  '$2b$10$.3Dd5MtmHGMYnvfxyPvKHegWDd5S9Aa2BUDFqDkb4KoN/wz.a6in2',
   'admin'
 )
-ON CONFLICT (username) DO NOTHING;
+ON CONFLICT (username) DO UPDATE
+SET password = EXCLUDED.password,
+    role = EXCLUDED.role;
 
--- Note: The password hash above is a placeholder
--- You need to generate a proper bcrypt hash for "admin@2025"
--- Or use the seed script: npm run seed
+-- Verify the user was created
+SELECT id, username, role FROM users WHERE username = 'admin';
 
 

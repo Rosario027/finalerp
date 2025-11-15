@@ -216,7 +216,7 @@ export function InvoiceReceipt({
           fontStyle: "italic",
           marginTop: "8px",
         }}>
-          Thank you for your business!
+          Thank you for shopping
         </div>
       </div>
     </div>

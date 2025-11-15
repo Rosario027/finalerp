@@ -81,6 +81,7 @@ export default function SalesOverview() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
       toast({
         title: "Invoice Deleted",
         description: "The invoice has been marked as deleted.",

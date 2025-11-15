@@ -27,7 +27,11 @@ The system handles both B2C (Business to Consumer) and B2B (Business to Business
 - **Invoice Print Template Updates**:
   - Shop name changed from "AMAZEON" to "AMAZEON SHOPPING"
   - Last line changed to "Thank you for shopping" (previously "Thank you for your business!")
-  - Updated in shared/shopInfo.ts and print-invoice.tsx
+  - Updated in shared/shopInfo.ts, print-invoice.tsx, and InvoiceReceipt.tsx
+- **Dashboard Real-Time Updates**:
+  - Dashboard stats now update immediately when invoices are deleted
+  - Delete mutation invalidates both invoice list and admin stats queries
+  - Prevents stale data from being displayed after deletions
 
 ### Settings Page Implementation
 - Added admin-only Settings page at `/admin/settings`

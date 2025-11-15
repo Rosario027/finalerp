@@ -118,9 +118,57 @@ export default function PrintInvoice() {
               size: 80mm auto;
               margin: 0;
             }
+            * {
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            html, body {
+              margin: 0 !important;
+              padding: 0 !important;
+              width: 100% !important;
+              height: auto !important;
+            }
+            /* Hide all UI elements when printing */
+            header,
+            [data-sidebar],
+            [data-sidebar="trigger"],
+            [data-sidebar="rail"],
+            button[data-testid="button-sidebar-toggle"],
+            button[data-testid="button-theme-toggle"],
+            .sidebar,
+            nav {
+              display: none !important;
+              visibility: hidden !important;
+            }
+            /* Remove any spacing from main content */
+            main {
+              margin: 0 !important;
+              padding: 0 !important;
+            }
+            /* Ensure receipt container has no margins */
+            .receipt-container {
+              margin: 0 auto !important;
+              padding: 10px !important;
+              margin-top: 0 !important;
+              padding-top: 10px !important;
+            }
+            /* Remove any spacing before logo */
+            .receipt-container > div:first-child {
+              margin-top: 0 !important;
+              padding-top: 0 !important;
+            }
+          }
+          /* Hide sidebar and header in screen view for print page */
+          @media screen {
+            header,
+            [data-sidebar],
+            button[data-testid="button-sidebar-toggle"],
+            button[data-testid="button-theme-toggle"] {
+              display: none !important;
+            }
             body {
-              margin: 0;
-              padding: 0;
+              margin: 0 !important;
+              padding: 0 !important;
             }
           }
         `}
@@ -135,7 +183,7 @@ export default function PrintInvoice() {
         fontSize: "12px",
         lineHeight: "1.4",
       }} data-testid="print-invoice">
-        <div style={{ textAlign: "center", marginBottom: "10px" }}>
+        <div style={{ textAlign: "center", marginBottom: "10px", marginTop: "0" }}>
           <img 
             src={logoImg} 
             alt="Amazeon Logo" 

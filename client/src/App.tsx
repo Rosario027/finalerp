@@ -62,50 +62,57 @@ function renderMainApp(user: any) {
   };
 
   return (
-    <SidebarProvider style={sidebarStyle as React.CSSProperties}>
-      <div className="flex h-screen w-full">
-        <AppSidebar />
-        <div className="flex flex-col flex-1">
-          <header className="flex items-center justify-between p-4 border-b h-16">
-            <SidebarTrigger data-testid="button-sidebar-toggle" />
-            <ThemeToggle />
-          </header>
-          <main className="flex-1 overflow-auto">
-            <Switch>
-              <Route path="/print-invoice/:id" component={PrintInvoice} />
-              <Route path="/create-invoice">
-                {() => <ProtectedRoute component={CreateInvoice} />}
-              </Route>
-              <Route path="/sales-overview">
-                {() => <ProtectedRoute component={SalesOverview} />}
-              </Route>
-              <Route path="/admin/dashboard">
-                {() => <ProtectedRoute component={AdminDashboard} adminOnly />}
-              </Route>
-              <Route path="/admin/inventory">
-                {() => <ProtectedRoute component={InventoryManagement} adminOnly />}
-              </Route>
-              <Route path="/admin/b2b-invoice">
-                {() => <ProtectedRoute component={B2BInvoice} adminOnly />}
-              </Route>
-              <Route path="/admin/reports">
-                {() => <ProtectedRoute component={Reports} adminOnly />}
-              </Route>
-              <Route path="/admin/expenses">
-                {() => <ProtectedRoute component={Expenses} adminOnly />}
-              </Route>
-              <Route path="/admin/settings">
-                {() => <ProtectedRoute component={Settings} adminOnly />}
-              </Route>
-              <Route path="/">
-                {() => user.role === "admin" ? <Redirect to="/admin/dashboard" /> : <Redirect to="/create-invoice" />}
-              </Route>
-              <Route component={NotFound} />
-            </Switch>
-          </main>
-        </div>
-      </div>
-    </SidebarProvider>
+    <Switch>
+      {/* Print invoice route - render without sidebar/header layout */}
+      <Route path="/print-invoice/:id" component={PrintInvoice} />
+      
+      {/* All other routes - render with sidebar/header layout */}
+      <Route>
+        <SidebarProvider style={sidebarStyle as React.CSSProperties}>
+          <div className="flex h-screen w-full">
+            <AppSidebar />
+            <div className="flex flex-col flex-1">
+              <header className="flex items-center justify-between p-4 border-b h-16 print:hidden">
+                <SidebarTrigger data-testid="button-sidebar-toggle" />
+                <ThemeToggle />
+              </header>
+              <main className="flex-1 overflow-auto">
+                <Switch>
+                  <Route path="/create-invoice">
+                    {() => <ProtectedRoute component={CreateInvoice} />}
+                  </Route>
+                  <Route path="/sales-overview">
+                    {() => <ProtectedRoute component={SalesOverview} />}
+                  </Route>
+                  <Route path="/admin/dashboard">
+                    {() => <ProtectedRoute component={AdminDashboard} adminOnly />}
+                  </Route>
+                  <Route path="/admin/inventory">
+                    {() => <ProtectedRoute component={InventoryManagement} adminOnly />}
+                  </Route>
+                  <Route path="/admin/b2b-invoice">
+                    {() => <ProtectedRoute component={B2BInvoice} adminOnly />}
+                  </Route>
+                  <Route path="/admin/reports">
+                    {() => <ProtectedRoute component={Reports} adminOnly />}
+                  </Route>
+                  <Route path="/admin/expenses">
+                    {() => <ProtectedRoute component={Expenses} adminOnly />}
+                  </Route>
+                  <Route path="/admin/settings">
+                    {() => <ProtectedRoute component={Settings} adminOnly />}
+                  </Route>
+                  <Route path="/">
+                    {() => user.role === "admin" ? <Redirect to="/admin/dashboard" /> : <Redirect to="/create-invoice" />}
+                  </Route>
+                  <Route component={NotFound} />
+                </Switch>
+              </main>
+            </div>
+          </div>
+        </SidebarProvider>
+      </Route>
+    </Switch>
   );
 }
 
